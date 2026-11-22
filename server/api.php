@@ -5,6 +5,7 @@
  * Instalación: sube esta carpeta (api.php + .htaccess) a /public_html/wolf-wheels/ de tu hosting.
  * config.php (NO va en GitHub), opcional:
  *   <?php const EBAY_CLIENT_ID = '…'; const EBAY_CLIENT_SECRET = '…'; const MAIL_FROM = 'Wolf Wheels <no-reply@tudominio>';
+ *         const ADMIN_EMAIL = 'tu@correo';   // te avisa de cada registro nuevo y de cada cuenta verificada
  * La carpeta "data" se crea sola y queda protegida.
  *
  * Acciones (?a=…):
@@ -122,6 +123,23 @@ function sendCode(string $email, string $name): string {
     return @mail($email, $subject, $html, $headers) ? 'ok' : 'fail';
 }
 
+/** Aviso al administrador (ADMIN_EMAIL en config.php) de registros y verificaciones. */
+function notifyAdmin(string $what, string $name, string $email): void {
+    if (!defined('ADMIN_EMAIL') || ADMIN_EMAIL === '') return;
+    global $dir;
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $total = count(array_filter($users, fn($u) => !empty($u['verified'])));
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    $from = defined('MAIL_FROM') ? MAIL_FROM : "Wolf Wheels <no-reply@$host>";
+    $subject = '=?UTF-8?B?' . base64_encode("Wolf Wheels: $what") . '?=';
+    $h = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    $when = date('d/m/Y H:i');
+    $html = "<div style=\"font-family:Arial,sans-serif\"><h2 style=\"margin:0 0 10px\">{$h($what)}</h2>"
+        . "<p><b>Nombre:</b> {$h($name)}<br><b>Email:</b> {$h($email)}<br><b>Fecha:</b> $when</p>"
+        . "<p style=\"color:#666\">Cuentas verificadas en total: $total</p></div>";
+    @mail(ADMIN_EMAIL, $subject, $html, "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\n");
+}
+
 $a = $_GET['a'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -146,6 +164,7 @@ case 'register': {
     if ($r === 'exists') fail(409, 'exists');
     $sc = sendCode($email, $name);
     if ($sc === 'fail') fail(502, 'mail');
+    notifyAdmin('Nuevo registro (pendiente de verificar)', $name, $email);
     out(['pending' => true, 'email' => $email, 'sent' => $sc === 'ok']);
 }
 case 'verify': {
@@ -167,6 +186,10 @@ case 'verify': {
     });
     if ($u === 'wrong') { tooMany($email, true); fail(401, 'code'); }
     if ($u === 'expired') fail(410, 'expired');
+    if (empty($u['notified'])) {
+        notifyAdmin('Cuenta verificada', $u['name'], $email);
+        locked("$dir/users.json", function ($users) use ($email) { if (isset($users[$email])) $users[$email]['notified'] = true; return [$users, null]; });
+    }
     out(['token' => newToken($u['id']), 'name' => $u['name'], 'email' => $email]);
 }
 case 'resend': {
