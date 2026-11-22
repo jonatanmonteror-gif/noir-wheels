@@ -105,16 +105,15 @@ fun DetailScreen(title: String, selectKey: String? = null) {
     LaunchedEffect(title) { loadAll() }
 
     val d = detail
+    // Photos for versions the wiki marks as "Image not available": first another wiki photo, then eBay (via the server)
+    val backup = remember { mutableStateMapOf<String, String>() }
+    fun photoOf(v: Wiki.Version): String? = v.photo ?: backup[v.key(title)] ?: wikiMatch(v, photos)
     val groups = d?.versions?.map { it.group }?.distinct().orEmpty()
     val shown = d?.versions.orEmpty().filter { group == null || it.group == group }.let { if (newestFirst) it.asReversed() else it }
     val versionPhotos = shown.mapNotNull { v ->
         photoOf(v)?.let { p -> Wiki.Photo(p, p, listOf(v.year, v.series, v.color).filter { s -> s.isNotEmpty() }.joinToString(" · ")) }
     }
     val years = d?.versions.orEmpty().mapNotNull { it.year.take(4).toIntOrNull() }
-
-    // Photos for versions the wiki marks as "Image not available": first another wiki photo, then eBay (via the server)
-    val backup = remember { mutableStateMapOf<String, String>() }
-    fun photoOf(v: Wiki.Version): String? = v.photo ?: backup[v.key(title)] ?: wikiMatch(v, photos)
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         TopBar(title)
