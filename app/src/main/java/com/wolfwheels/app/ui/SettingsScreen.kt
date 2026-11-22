@@ -127,7 +127,7 @@ fun SettingsScreen() {
             Card {
                 Changelog.entries.forEachIndexed { i, e ->
                     if (i > 0) Spacer(Modifier.height(12.dp))
-                    Text("VERSIÓN ${e.version}", color = WW.amber, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                    Text(e.version.uppercase(), color = WW.amber, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                     Spacer(Modifier.height(6.dp))
                     e.items.forEach { Text("· $it", color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(vertical = 2.dp)) }
                 }
