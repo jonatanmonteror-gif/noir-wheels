@@ -40,6 +40,9 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk WolfWheels.apk
           sha256sum WolfWheels.apk | cut -d' ' -f1 > WolfWheels.apk.sha256
           echo "SHA-256: $(cat WolfWheels.apk.sha256)"
+          # Copia con el nombre antiguo: la app "Noir Wheels" (1.0.1) busca este archivo y así puede pasar a Wolf Wheels
+          cp WolfWheels.apk NoirWheels.apk
+          cp WolfWheels.apk.sha256 NoirWheels.apk.sha256
 
       - name: Publicar versión
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -51,4 +54,6 @@ jobs:
           files: |
             WolfWheels.apk
             WolfWheels.apk.sha256
+            NoirWheels.apk
+            NoirWheels.apk.sha256
           make_latest: true

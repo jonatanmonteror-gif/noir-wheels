@@ -8,6 +8,8 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object Http {
+    class HttpError(val code: Int) : IOException("El servidor respondió con error $code")
+
     const val UA = "WolfWheels/1.0 (Android; personal gallery app)"
 
     val client: OkHttpClient = OkHttpClient.Builder()
@@ -20,7 +22,7 @@ object Http {
     suspend fun get(url: String): String = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(url).header("User-Agent", UA).build()
         client.newCall(req).execute().use { r ->
-            if (!r.isSuccessful) throw IOException("El servidor respondió con error ${r.code}")
+            if (!r.isSuccessful) throw HttpError(r.code)
             r.body?.string() ?: ""
         }
     }

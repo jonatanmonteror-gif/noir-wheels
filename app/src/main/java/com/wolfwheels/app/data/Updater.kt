@@ -112,7 +112,12 @@ object Updater {
     private suspend fun fetchSha(url: String): String {
         var last: Exception? = null
         repeat(3) { i ->
-            try { return Http.get(url).trim().take(64).lowercase() } catch (e: Exception) { last = e; kotlinx.coroutines.delay(1200L * (i + 1)) }
+            try { return Http.get(url).trim().take(64).lowercase() }
+            catch (e: Http.HttpError) {
+                // GitHub answered: it is not a connection problem, retrying won't help
+                throw IOException(if (e.code == 404) "No se encontró el archivo de la actualización en GitHub. Vuelve a intentarlo en unos minutos." else "GitHub respondió con error ${e.code}.")
+            }
+            catch (e: Exception) { last = e; kotlinx.coroutines.delay(1200L * (i + 1)) }
         }
         throw IOException("No hay conexión con GitHub. Revisa internet y vuelve a pulsar Descargar.", last)
     }

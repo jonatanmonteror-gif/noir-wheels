@@ -5,7 +5,11 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
-        Entry("1.0.2", listOf(
+        Entry("1.0.4", listOf(
+            "Las actualizaciones se descargan bien también desde la app antigua (Noir Wheels).",
+            "Mensajes de error más claros al actualizar: ya no dice «sin conexión» cuando el problema es otro.",
+        )),
+        Entry("1.0.3", listOf(
             "Nuevo nombre e imagen: Wolf Wheels, con logo propio y diseño de carreras.",
             "Versiones de cada coche: elige una para ver su foto y todos sus datos (año, serie, color, decoración, base, interior, ruedas, nº de juguete, país y notas).",
             "Filtra las versiones por tipo y ordénalas de más recientes a más antiguas.",
