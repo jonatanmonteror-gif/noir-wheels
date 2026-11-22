@@ -11,6 +11,11 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.WolfWheels">
 
+        <!-- Read the toy number of the card from a photo (Google Play services, on the phone) -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"

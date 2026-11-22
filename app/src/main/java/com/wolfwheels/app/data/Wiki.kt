@@ -27,6 +27,8 @@ object Wiki {
         val fields: List<Field>,   // all columns, labels already in Spanish
         val photo: String?,
         val colorEs: String = color,   // colour shown (translated); [color] stays original for the collection key
+        val th: Int = 0,               // 0 normal · 1 Treasure Hunt · 2 Super Treasure Hunt
+        val seriesLink: String? = null,
     ) {
         /** Stable id for the collection. */
         fun key(title: String) = listOf(title, year, color, toy, series).joinToString("|")
@@ -151,7 +153,14 @@ object Wiki {
                         fields += Field(versionLabel(h), v, cell.link)
                     }
                     if (photo == null) photo = row.firstNotNullOfOrNull { it.img }
-                    if (fields.isNotEmpty()) versions += Version(group, year, series, color, toy, fields, photo)
+                    val all = row.joinToString(" ") { it.text } + " " + group
+                    val th = when {
+                        superTh.containsMatchIn(all) -> 2
+                        normalTh.containsMatchIn(all) -> 1
+                        else -> 0
+                    }
+                    val seriesLink = head.indexOfFirst { it.lowercase().startsWith("series") }.let { i -> if (i >= 0) row.getOrNull(i)?.link else null }
+                    if (fields.isNotEmpty()) versions += Version(group, year, series, color, toy, fields, photo, th = th, seriesLink = seriesLink)
                 }
             } else if (lower.firstOrNull()?.startsWith("year of card") == true) {
                 for (row in grid.drop(1)) head.forEachIndexed { i, h ->
@@ -239,6 +248,27 @@ object Wiki {
             }
             fillPending()
             out += line
+        }
+        return out
+    }
+
+    private val superTh = Regex("super\\s*treasure\\s*hunt|\\\$\\s*TH\\b|\\bSTH\\b", RegexOption.IGNORE_CASE)
+    private val normalTh = Regex("treasure\\s*hunt|\\bT\\.?H\\.?\\b")
+
+    /** A version found by its toy number (printed on the card). */
+    data class ToyMatch(val title: String, val version: Version)
+
+    /** Finds which car and version has this toy number: wiki search, then each car's versions table. */
+    suspend fun findByToy(code: String): List<ToyMatch> {
+        val c = code.trim().uppercase()
+        val j = call(mapOf("action" to "query", "list" to "search", "srsearch" to c, "srnamespace" to "0", "srlimit" to "8"))
+        val arr = j.optJSONObject("query")?.optJSONArray("search") ?: return emptyList()
+        val titles = (0 until arr.length()).map { arr.getJSONObject(it).optString("title") }.filter { okCar(it) }.take(4)
+        val out = mutableListOf<ToyMatch>()
+        for (t in titles) {
+            val d = runCatching { detail(t) }.getOrNull() ?: continue
+            d.versions.filter { v -> v.toy.uppercase().split(' ', '/', ',', '·').any { it.trim() == c } || v.toy.uppercase().contains(c) }
+                .forEach { out += ToyMatch(d.title, it) }
         }
         return out
     }

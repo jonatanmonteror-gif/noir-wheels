@@ -48,6 +48,9 @@ fun ListingScreen(label: String, target: String) {
     var cars by remember { mutableStateOf<List<Wiki.ListCar>?>(null) }
     var error by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
+    var query by remember { mutableStateOf("") }
+    var year by remember { mutableStateOf<String?>(null) }
+    var sort by remember { mutableIntStateOf(0) }   // 0 as in the wiki · 1 A-Z · 2 newest · 3 oldest
     LaunchedEffect(target, attempt) {
         error = false
         try { cars = Wiki.listFrom(target) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { error = true }
@@ -55,14 +58,47 @@ fun ListingScreen(label: String, target: String) {
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         TopBar(label)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(150.dp),
+            columns = carColumns(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
             horizontalArrangement = Gap, verticalArrangement = Gap, modifier = Modifier.fillMaxSize()
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Heading(label, size = 22, trailing = cars?.size?.toString())
+            val yearOf = { c: Wiki.ListCar -> Regex("\\b(19[6-9]\\d|20[0-4]\\d)\\b").find(c.sub)?.value }
+            val years = cars.orEmpty().mapNotNull(yearOf).distinct().sortedDescending()
+            val list = cars?.let { l ->
+                l.filter { query.isBlank() || it.title.contains(query.trim(), true) || it.sub.contains(query.trim(), true) }
+                    .filter { year == null || yearOf(it) == year }
+                    .let {
+                        when (sort) {
+                            1 -> it.sortedBy { c -> c.title.lowercase() }
+                            2 -> it.sortedByDescending { c -> yearOf(c) ?: "" }
+                            3 -> it.sortedBy { c -> yearOf(c) ?: "9999" }
+                            else -> it
+                        }
+                    }
             }
-            val list = cars
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Heading(label, Modifier.weight(1f), size = 22, trailing = list?.size?.let { n -> if (n == cars?.size) "$n" else "$n de ${cars?.size}" })
+                        ColumnsToggle()
+                    }
+                    if (!cars.isNullOrEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Input(query, "Filtrar por nombre", Modifier.weight(1f)) { query = it }
+                            Spacer(Modifier.padding(4.dp))
+                            SmallChip(listOf("Orden wiki", "A-Z", "Recientes", "Antiguos")[sort], true) { sort = (sort + 1) % 4 }
+                        }
+                        if (years.size > 1) {
+                            Spacer(Modifier.height(8.dp))
+                            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                                item { SmallChip("Todos los años", year == null) { year = null } }
+                                items(years.size) { i -> SmallChip(years[i], year == years[i]) { year = if (year == years[i]) null else years[i] } }
+                            }
+                        }
+                    }
+                }
+            }
             when {
                 error -> item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 30.dp)) {
@@ -77,7 +113,7 @@ fun ListingScreen(label: String, target: String) {
                     }
                 }
                 list.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text("Esta página de la wiki no tiene una lista de coches.", color = WW.text2, fontSize = 14.sp, modifier = Modifier.padding(top = 30.dp))
+                    Text(if (cars.isNullOrEmpty()) "Esta página de la wiki no tiene una lista de coches." else "Ningún coche con estos filtros.", color = WW.text2, fontSize = 14.sp, modifier = Modifier.padding(top = 30.dp))
                 }
                 else -> items(list, key = { it.title }) { c -> ListCard(c) { AppState.open(c.title) } }
             }

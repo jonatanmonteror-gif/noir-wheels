@@ -25,6 +25,15 @@ object Prefs {
         get() = sp.getLong("last_sync", 0L)
         set(v) = sp.edit().putLong("last_sync", v).apply()
 
+    /** Cars per row in the grids (1, 2 or 3), the same everywhere. */
+    val columns by lazy { androidx.compose.runtime.mutableIntStateOf(sp.getInt("columns", 2).coerceIn(1, 3)) }
+    fun setColumns(n: Int) { columns.intValue = n; sp.edit().putInt("columns", n).apply() }
+
+    /** Garages created by me (also the empty ones). */
+    var garages: List<String>
+        get() = (sp.getString("garages", "") ?: "").split('\n').filter { it.isNotBlank() }
+        set(v) = sp.edit().putString("garages", v.joinToString("\n")).apply()
+
     /** Last version whose "what's new" was shown. */
     var seenVersion: Int
         get() = sp.getInt("seen_version", 0)

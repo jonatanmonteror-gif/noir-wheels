@@ -2,4 +2,7 @@
 <paths>
     <cache-path name="updates" path="updates/" />
     <external-files-path name="updates_ext" path="updates/" />
+    <cache-path name="scan" path="scan/" />
+    <cache-path name="share" path="share/" />
+    <files-path name="myphotos" path="myphotos/" />
 </paths>

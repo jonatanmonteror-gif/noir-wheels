@@ -63,7 +63,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.launch
 
 @Composable
-fun DetailScreen(title: String, selectKey: String? = null) {
+fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = null) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf<Wiki.Detail?>(null) }
@@ -76,6 +76,8 @@ fun DetailScreen(title: String, selectKey: String? = null) {
     // Versions: group filter, order and the selected one
     var group by remember { mutableStateOf<String?>(null) }
     var newestFirst by remember { mutableStateOf(true) }
+    var colorFilter by remember { mutableStateOf<String?>(null) }
+    var onlyTh by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Wiki.Version?>(null) }
     var descOpen by remember { mutableStateOf(false) }
     val versionsRow = rememberLazyListState()
@@ -101,6 +103,7 @@ fun DetailScreen(title: String, selectKey: String? = null) {
                 val d = Translator.textsOf(raw)
                 detail = d
                 selected = d.versions.firstOrNull { selectKey != null && it.key(title) == selectKey }
+                    ?: d.versions.firstOrNull { selectToy != null && it.toy.uppercase().contains(selectToy.uppercase()) }
                     ?: d.versions.lastOrNull { it.photo != null } ?: d.versions.lastOrNull()
                 val withVersions = Translator.versionsOf(d)
                 detail = withVersions
@@ -116,7 +119,14 @@ fun DetailScreen(title: String, selectKey: String? = null) {
     val backup = remember { mutableStateMapOf<String, String>() }
     fun photoOf(v: Wiki.Version): String? = v.photo ?: backup[v.key(title)] ?: wikiMatch(v, photos)
     val groups = d?.versions?.map { it.group }?.distinct().orEmpty()
-    val shown = d?.versions.orEmpty().filter { group == null || it.group == group }.let { if (newestFirst) it.asReversed() else it }
+    val colors = d?.versions.orEmpty().map { it.colorEs }.filter { it.isNotBlank() }.groupingBy { it }.eachCount()
+        .entries.sortedByDescending { it.value }.map { it.key }.take(14)
+    val thCount = d?.versions.orEmpty().count { it.th > 0 }
+    val shown = d?.versions.orEmpty()
+        .filter { group == null || it.group == group }
+        .filter { colorFilter == null || it.colorEs == colorFilter }
+        .filter { !onlyTh || it.th > 0 }
+        .let { if (newestFirst) it.asReversed() else it }
     val versionPhotos = shown.mapNotNull { v ->
         photoOf(v)?.let { p -> Wiki.Photo(p, p, listOf(v.year, v.series, v.colorEs).filter { s -> s.isNotEmpty() }.joinToString(" · ")) }
     }
@@ -201,9 +211,18 @@ fun DetailScreen(title: String, selectKey: String? = null) {
                                 items(groups.size) { i -> Pill(groups[i], group == groups[i]) { group = groups[i] } }
                             }
                             item { Pill(if (newestFirst) "Recientes ↓" else "Antiguas ↓", false) { newestFirst = !newestFirst } }
+                            if (thCount > 0) item { Pill("Solo TH / STH · $thCount", onlyTh) { onlyTh = !onlyTh } }
+                        }
+                        if (colors.size > 1) {
+                            Spacer(Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item { ColorChip("Todos los colores", colorFilter == null) { colorFilter = null } }
+                                items(colors.size) { i -> ColorChip(colors[i], colorFilter == colors[i]) { colorFilter = if (colorFilter == colors[i]) null else colors[i] } }
+                            }
                         }
                         Spacer(Modifier.height(12.dp))
-                        LaunchedEffect(group, newestFirst) { versionsRow.scrollToItem(0) }
+                        LaunchedEffect(group, newestFirst, colorFilter, onlyTh) { versionsRow.scrollToItem(0) }
+                        if (shown.isEmpty()) Text("Ninguna versión con estos filtros.", color = WW.text2, fontSize = 14.sp)
                         LazyRow(state = versionsRow, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             itemsIndexed(shown) { _, v ->
                                 val k = v.key(title)
@@ -217,14 +236,22 @@ fun DetailScreen(title: String, selectKey: String? = null) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(top = 6.dp)) {
                             SectionTitle(listOf(v.year, v.series).filter { it.isNotEmpty() }.joinToString(" · ").ifEmpty { "Versión" })
+                            if (v.th > 0) {
+                                ThBadge(v.th)
+                                Spacer(Modifier.height(10.dp))
+                            }
                             val st = MyCollection.statusOf(v.key(title))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ToggleButton(if (st == "have") "✓ La tengo" else "La tengo", st == "have", Modifier.weight(1f)) {
-                                    MyCollection.set(title, v, photoOf(v), if (st == "have") null else "have")
+                                    if (st != "have") MyCollection.set(title, v, photoOf(v), "have")
                                 }
                                 ToggleButton(if (st == "want") "★ La quiero" else "La quiero", st == "want", Modifier.weight(1f)) {
                                     MyCollection.set(title, v, photoOf(v), if (st == "want") null else "want")
                                 }
+                            }
+                            MyCollection.items[v.key(title)]?.takeIf { !it.deleted && it.status == "have" }?.let { item ->
+                                Spacer(Modifier.height(10.dp))
+                                CollectionEditor(item)
                             }
                             Spacer(Modifier.height(10.dp))
                             val main = v.fields.filter { it.label != "Notas" && it.label != "Año" }
@@ -354,6 +381,23 @@ private fun TileGrid(items: List<Wiki.Field>) {
 }
 
 @Composable
+private fun ColorChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(50)).background(if (selected) WW.text else WW.surface)
+            .border(1.dp, if (selected) WW.text else WW.line, RoundedCornerShape(50))
+            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp)
+    ) { Text(text, color = if (selected) WW.onAccent else WW.text2, fontSize = 13.sp) }
+}
+
+@Composable
+fun ThBadge(th: Int) {
+    Box(Modifier.clip(Slant).background(if (th == 2) WW.accent else androidx.compose.ui.graphics.SolidColor(WW.text)).padding(horizontal = 14.dp, vertical = 4.dp)) {
+        Text(if (th == 2) "SUPER TREASURE HUNT" else "TREASURE HUNT", color = WW.onAccent, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+            fontStyle = FontStyle.Italic, fontSize = 15.sp, letterSpacing = 0.5.sp)
+    }
+}
+
+@Composable
 private fun ToggleButton(text: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Box(
@@ -391,6 +435,9 @@ private fun VersionCard(v: Wiki.Version, photo: String?, status: String?, select
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(WW.showroom).padding(4.dp), contentAlignment = Alignment.Center) {
             if (photo != null) AsyncImage(Wiki.big(photo, 400), v.color, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
             else Text("SIN FOTO", color = WW.text3, fontSize = 11.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+            if (v.th > 0) Box(Modifier.align(Alignment.TopStart).clip(Slant).background(if (v.th == 2) WW.amber else WW.text).padding(horizontal = 7.dp, vertical = 1.dp)) {
+                Text(if (v.th == 2) "STH" else "TH", color = WW.onAccent, fontSize = 11.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic)
+            }
             if (status != null) Box(Modifier.align(Alignment.TopEnd).clip(Slant).background(WW.accent).padding(horizontal = 8.dp, vertical = 1.dp)) {
                 Text(if (status == "have") "✓ TENGO" else "★ QUIERO", color = WW.onAccent, fontSize = 11.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic)
             }

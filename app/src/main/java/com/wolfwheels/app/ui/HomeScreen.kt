@@ -197,6 +197,16 @@ fun HomeScreen() {
                         modifier = Modifier.size(20.dp).clip(RoundedCornerShape(50)).clickable { query = ""; focus.clearFocus() })
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.accent)
+                    .clickable { AppState.push(Route.Scan) }.padding(vertical = 11.dp),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(androidx.compose.ui.res.painterResource(com.wolfwheels.app.R.drawable.ic_scan), null, tint = WW.onAccent, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("ESCANEAR TARJETA", color = WW.onAccent, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 17.sp)
+            }
             Spacer(Modifier.height(10.dp))
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -213,7 +223,7 @@ fun HomeScreen() {
             is Source.Cat -> Wiki.collections[s.index].label
         }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(150.dp),
+            columns = carColumns(),
             state = grid,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             horizontalArrangement = Gap,
@@ -221,8 +231,11 @@ fun HomeScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Heading(title, Modifier.padding(top = 4.dp, bottom = 2.dp), size = 22,
-                    trailing = if (cars.isNotEmpty()) "${cars.size}${if (finished) "" else "+"}" else null)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Heading(title, Modifier.weight(1f).padding(top = 4.dp, bottom = 2.dp), size = 22,
+                        trailing = if (cars.isNotEmpty()) "${cars.size}${if (finished) "" else "+"}" else null)
+                    ColumnsToggle()
+                }
             }
             itemsIndexed(cars, key = { _, c -> c.title }) { _, car -> CarCard(car) { AppState.open(car.title) } }
             item(span = { GridItemSpan(maxLineSpan) }) {

@@ -67,4 +67,6 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.1")
     // Translate the wiki texts to Spanish on the phone (the language is downloaded once)
     implementation("com.google.mlkit:translate:17.0.3")
+    // Read the toy number on the card from a photo
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 }

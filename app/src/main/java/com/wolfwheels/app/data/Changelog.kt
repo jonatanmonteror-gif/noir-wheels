@@ -5,6 +5,15 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Escáner, filtros y colección", listOf(
+            "Escanear tarjeta: haz una foto al blíster (o escribe el número de juguete, p. ej. HKG43) y la app abre el coche y la versión exacta. Te avisa si ya lo tienes.",
+            "Ver los coches en 1, 2 o 3 columnas (se recuerda en todas las listas).",
+            "Versiones: filtra por color y por Treasure Hunt / Super Treasure Hunt. Las TH y STH llevan su marca.",
+            "Listas de series, diseñadores…: filtra por nombre y por año, y ordena A-Z, recientes o antiguos.",
+            "Mi colección: cantidad (repetidos para cambiar), conservación, precio pagado, garajes, notas y tu propia foto.",
+            "Pestañas Tengo, Quiero, Repetidos y Series (cuántos tienes de cada serie y cuántos te faltan).",
+            "Exportar la colección a Excel (CSV) con el botón de compartir.",
+        )),
         Entry("Todo en español", listOf(
             "La historia, las curiosidades, los datos de la tarjeta y los datos de cada versión (color, decoración, base, interior, notas…) salen traducidos al español.",
             "Cada texto se traduce una sola vez y se guarda: la próxima vez sale ya traducido al momento, incluso sin conexión.",

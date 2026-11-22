@@ -15,7 +15,8 @@ import com.wolfwheels.app.data.Wiki
 
 /** Screens shown on top of the home list. */
 sealed class Route {
-    data class Detail(val title: String, val selectKey: String? = null) : Route()
+    data class Detail(val title: String, val selectKey: String? = null, val selectToy: String? = null) : Route()
+    data object Scan : Route()
     data class Listing(val label: String, val target: String) : Route()
     data object Collection : Route()
     data object Account : Route()
@@ -53,7 +54,8 @@ fun App() {
                 // key: each screen in the stack keeps its own state while it is on top
                 key(AppState.stack.size, r) {
                     when (r) {
-                        is Route.Detail -> DetailScreen(r.title, r.selectKey)
+                        is Route.Detail -> DetailScreen(r.title, r.selectKey, r.selectToy)
+                        Route.Scan -> ScanScreen()
                         is Route.Listing -> ListingScreen(r.label, r.target)
                         Route.Collection -> CollectionScreen()
                         Route.Account -> AccountScreen()

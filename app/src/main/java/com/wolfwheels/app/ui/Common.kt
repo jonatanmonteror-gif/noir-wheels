@@ -159,3 +159,31 @@ fun TopBar(title: String, trailing: (@Composable () -> Unit)? = null) {
         trailing?.invoke()
     }
 }
+
+
+/** 1, 2 or 3 cars per row. Tap to change; it is remembered for every list. */
+@Composable
+fun ColumnsToggle() {
+    val n = com.wolfwheels.app.data.Prefs.columns.intValue
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(50)).padding(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        (1..3).forEach { c ->
+            Box(
+                Modifier.clip(RoundedCornerShape(50)).then(if (c == n) Modifier.background(WW.accent) else Modifier)
+                    .clickable { com.wolfwheels.app.data.Prefs.setColumns(c) }.padding(horizontal = 9.dp, vertical = 5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    repeat(c) { Box(Modifier.size(width = 4.dp, height = 12.dp).clip(RoundedCornerShape(1.dp)).background(if (c == n) WW.onAccent else WW.text2)) }
+                }
+            }
+        }
+    }
+}
+
+/** Grid columns from the user's choice. */
+@Composable
+fun carColumns(): androidx.compose.foundation.lazy.grid.GridCells =
+    androidx.compose.foundation.lazy.grid.GridCells.Fixed(com.wolfwheels.app.data.Prefs.columns.intValue)

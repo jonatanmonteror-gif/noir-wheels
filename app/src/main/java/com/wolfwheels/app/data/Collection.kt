@@ -23,13 +23,28 @@ object MyCollection {
     data class Item(
         val key: String, val title: String, val year: String, val series: String, val color: String,
         val toy: String, val photo: String?, val status: String, val t: Long, val deleted: Boolean = false,
+        val qty: Int = 1,
+        val cond: String = "",          // "blister" · "suelto" · "dañado"
+        val price: Double? = null,      // what I paid (total)
+        val notes: String = "",
+        val garage: String = "",
+        val myPhoto: String? = null,    // my own photo (only on this phone)
+        val seriesLink: String? = null,
+        val th: Int = 0,
+        val added: Long = t,
     ) {
         fun json(): JSONObject = JSONObject().put("key", key).put("title", title).put("year", year).put("series", series)
             .put("color", color).put("toy", toy).put("photo", photo ?: "").put("status", status).put("t", t).put("deleted", deleted)
+            .put("qty", qty).put("cond", cond).put("price", price ?: JSONObject.NULL).put("notes", notes).put("garage", garage)
+            .put("myPhoto", myPhoto ?: "").put("seriesLink", seriesLink ?: "").put("th", th).put("added", added)
         companion object {
             fun from(j: JSONObject) = Item(
                 j.optString("key"), j.optString("title"), j.optString("year"), j.optString("series"), j.optString("color"),
                 j.optString("toy"), j.optString("photo").ifEmpty { null }, j.optString("status", "have"), j.optLong("t"), j.optBoolean("deleted"),
+                qty = j.optInt("qty", 1).coerceAtLeast(1), cond = j.optString("cond"),
+                price = if (j.isNull("price") || !j.has("price")) null else j.optDouble("price").takeIf { !it.isNaN() },
+                notes = j.optString("notes"), garage = j.optString("garage"), myPhoto = j.optString("myPhoto").ifEmpty { null },
+                seriesLink = j.optString("seriesLink").ifEmpty { null }, th = j.optInt("th"), added = j.optLong("added", j.optLong("t")),
             )
         }
     }
@@ -63,13 +78,43 @@ object MyCollection {
     fun visible(status: String) = items.values.filter { !it.deleted && it.status == status }.sortedByDescending { it.t }
     fun countFor(title: String, status: String = "have") = items.values.count { !it.deleted && it.status == status && it.title == title }
 
-    /** Sets the status of a version (null = remove from the collection). */
+    /** Sets the status of a version (null = remove from the collection). Keeps the details already written. */
     fun set(title: String, v: Wiki.Version, photo: String?, status: String?) {
         val key = v.key(title)
         val now = System.currentTimeMillis()
-        items[key] = Item(key, title, v.year, v.series, v.color, v.toy, photo ?: v.photo, status ?: (items[key]?.status ?: "have"), now, deleted = status == null)
+        val old = items[key]?.takeIf { !it.deleted }
+        items[key] = (old ?: Item(key, title, v.year, v.series, v.color, v.toy, photo ?: v.photo, status ?: "have", now,
+            seriesLink = v.seriesLink, th = v.th, added = now))
+            .copy(status = status ?: old?.status ?: "have", t = now, deleted = status == null,
+                photo = old?.photo ?: photo ?: v.photo, seriesLink = v.seriesLink ?: old?.seriesLink, th = v.th)
         persist()
         scheduleSync()
+    }
+
+    /** Changes the details of an item (quantity, condition, price, notes, garage, photo). */
+    fun update(key: String, change: (Item) -> Item) {
+        val old = items[key] ?: return
+        items[key] = change(old).copy(t = System.currentTimeMillis())
+        persist()
+        scheduleSync()
+    }
+
+    /** Items of this toy number I already have (for the scanner). */
+    fun haveToy(code: String) = items.values.filter { !it.deleted && it.status == "have" && it.toy.uppercase().contains(code.uppercase()) }
+
+    /** Garages used in the collection plus the empty ones I created. */
+    fun garages(): List<String> = (items.values.filter { !it.deleted }.map { it.garage } + Prefs.garages).filter { it.isNotBlank() }.distinct().sorted()
+
+    /** The collection as a CSV table (opens in Excel / Google Sheets). */
+    fun csv(): String {
+        fun q(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
+        val sb = StringBuilder("Estado;Modelo;Año;Serie;Color;Nº de juguete;Cantidad;Conservación;Precio pagado;Garaje;TH;Notas\n")
+        items.values.filter { !it.deleted }.sortedWith(compareBy({ it.status }, { it.title }, { it.year })).forEach {
+            sb.append(listOf(if (it.status == "have") "Tengo" else "Quiero", it.title, it.year, it.series, it.color, it.toy, it.qty.toString(),
+                it.cond, it.price?.let { p -> "%.2f".format(p) } ?: "", it.garage, when (it.th) { 2 -> "STH"; 1 -> "TH"; else -> "" }, it.notes)
+                .joinToString(";") { v -> q(v) }).append('\n')
+        }
+        return sb.toString()
     }
 
     fun scheduleSync() {
