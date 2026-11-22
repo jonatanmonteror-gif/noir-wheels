@@ -27,6 +27,7 @@ object AppState {
     val stack = mutableStateListOf<Route>()
     val viewer = mutableStateOf<Viewer?>(null)
     val update = mutableStateOf<Updater.Release?>(null)
+    val resumes = androidx.compose.runtime.mutableIntStateOf(0)
 
     data class Viewer(val photos: List<Wiki.Photo>, val start: Int)
 
@@ -42,10 +43,8 @@ object AppState {
 @Composable
 fun App() {
     WolfTheme {
-        LaunchedEffect(Unit) {
-            val r = Updater.latest()
-            if (r != null && r.versionCode > Updater.currentCode) AppState.update.value = r
-        }
+        // Check for a new version when the app opens and every time it comes back (at most every 30 min)
+        LaunchedEffect(AppState.resumes.intValue) { UpdateFlow.check() }
         BackHandler(enabled = AppState.viewer.value != null || AppState.stack.isNotEmpty()) { AppState.back() }
 
         Box(Modifier.fillMaxSize().background(WW.bg)) {
@@ -64,6 +63,7 @@ fun App() {
                 }
             }
             AppState.viewer.value?.let { PhotoViewer(it) }
+            UpdateDialog()
         }
     }
 }

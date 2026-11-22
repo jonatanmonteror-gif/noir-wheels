@@ -5,6 +5,13 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Avisos y cuentas verificadas", listOf(
+            "Aviso al abrir la app cuando hay una versión nueva, con «Actualizar» o «Luego».",
+            "Al crear la cuenta te llega un código a tu email para verificarla.",
+            "Las columnas (1, 2 o 3) se eligen ahora en Ajustes → Vista: la app queda más limpia.",
+            "En cada modelo se ven 15 fotos y el botón «Ver todas las fotos».",
+            "Mi colección renovada: resumen de tu garaje, botones Escanear y Exportar, pestañas Tengo / Quiero / Repes / Series y separación por años al ordenar por año.",
+        )),
         Entry("Escáner, filtros y colección", listOf(
             "Escanear tarjeta: haz una foto al blíster (o escribe el número de juguete, p. ej. HKG43) y la app abre el coche y la versión exacta. Te avisa si ya lo tienes.",
             "Ver los coches en 1, 2 o 3 columnas (se recuerda en todas las listas).",

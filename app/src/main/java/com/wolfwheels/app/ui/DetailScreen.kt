@@ -80,6 +80,7 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
     var onlyTh by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Wiki.Version?>(null) }
     var descOpen by remember { mutableStateOf(false) }
+    var allPhotos by remember { mutableStateOf(false) }
     val versionsRow = rememberLazyListState()
 
     fun loadPhotos() {
@@ -315,7 +316,7 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 SectionTitle("Todas las fotos", trailing = if (photos.isEmpty()) null else "${photos.size}${if (cont != null) "+" else ""}")
             }
-            itemsIndexed(photos) { i, p ->
+            itemsIndexed(if (allPhotos) photos else photos.take(15)) { i, p ->
                 AsyncImage(
                     p.thumb, p.name, contentScale = ContentScale.Crop,
                     modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(WW.showroom)
@@ -327,7 +328,9 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
                     when {
                         photosLoading -> CircularProgressIndicator(color = WW.orange, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
                         photosError -> SecondaryButton("Reintentar fotos") { loadPhotos() }
-                        cont != null -> SecondaryButton("Más fotos") { loadPhotos() }
+                        !allPhotos && (photos.size > 15 || cont != null) ->
+                            PrimaryButton("Ver todas las fotos (${photos.size}${if (cont != null) "+" else ""})", Modifier.fillMaxWidth()) { allPhotos = true }
+                        cont != null -> SecondaryButton("Cargar más fotos") { loadPhotos() }
                         photos.isEmpty() -> Text("Este modelo no tiene más fotos.", color = WW.text3, fontSize = 13.sp)
                     }
                     Spacer(Modifier.height(18.dp))

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,21 @@ fun SettingsScreen() {
                 }
             }
 
+            SectionTitle("Vista")
+            Card {
+                Text("Coches por fila", color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(4.dp))
+                Text("En el inicio, las listas y tu colección.", color = WW.text3, fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (1..3).forEach { c ->
+                        Pill(if (c == 1) "1 columna" else "$c columnas", com.wolfwheels.app.data.Prefs.columns.intValue == c) {
+                            com.wolfwheels.app.data.Prefs.setColumns(c)
+                        }
+                    }
+                }
+            }
+
             SectionTitle("Cuenta")
             Card {
                 if (com.wolfwheels.app.data.Account.loggedIn.value) {
@@ -81,28 +97,15 @@ fun SettingsScreen() {
                 if (update != null) {
                     Text("Hay una versión nueva: ${update.name}", color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(12.dp))
-                    when {
-                        ready != null -> PrimaryButton("Instalar", Modifier.fillMaxWidth()) {
-                            if (!Updater.install(ctx, ready!!)) status = "Permite instalar apps desde Wolf Wheels y vuelve a pulsar Instalar."
-                        }
-                        progress >= 0f -> {
-                            LinearProgressIndicator(progress = { progress }, color = WW.orange, trackColor = WW.surface2, modifier = Modifier.fillMaxWidth())
-                            Spacer(Modifier.height(6.dp))
-                            Text("Descargando… ${(progress * 100).toInt()} %", color = WW.text2, fontSize = 13.sp)
-                        }
-                        else -> PrimaryButton("Descargar e instalar", Modifier.fillMaxWidth()) {
-                            status = null; progress = 0f
-                            scope.launch {
-                                try {
-                                    val f = Updater.download(ctx, update) { progress = it }
-                                    ready = f
-                                    if (!Updater.install(ctx, f)) status = "Permite instalar apps desde Wolf Wheels y vuelve a pulsar Instalar."
-                                } catch (e: kotlinx.coroutines.CancellationException) { throw e
-                                } catch (e: Exception) { status = e.message ?: "No se pudo descargar."
-                                } finally { progress = -1f }
-                            }
-                        }
+                    val p = UpdateFlow.progress.floatValue
+                    if (p >= 0f) {
+                        LinearProgressIndicator(progress = { p }, color = WW.orange, trackColor = WW.surface2, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(6.dp))
+                        Text("Descargando… ${(p * 100).toInt()} %", color = WW.text2, fontSize = 13.sp)
+                    } else {
+                        PrimaryButton(if (UpdateFlow.ready.value != null) "Instalar" else "Descargar e instalar", Modifier.fillMaxWidth()) { UpdateFlow.start(ctx, scope) }
                     }
+                    UpdateFlow.status.value?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.orange, fontSize = 13.sp) }
                 } else {
                     Text("Tienes la última versión.", color = WW.text, fontSize = 15.sp)
                     Spacer(Modifier.height(12.dp))
@@ -114,7 +117,7 @@ fun SettingsScreen() {
                             checking = false
                             when {
                                 r == null -> status = "No se pudo comprobar. Revisa la conexión."
-                                r.versionCode > Updater.currentCode -> AppState.update.value = r
+                                r.versionCode > Updater.currentCode -> { AppState.update.value = r; UpdateFlow.dismissed.value = true }
                                 else -> status = "Ya tienes la versión más reciente."
                             }
                         }

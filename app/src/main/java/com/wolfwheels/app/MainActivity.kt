@@ -24,5 +24,6 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // Bring changes made on other phones
         lifecycleScope.launch { com.wolfwheels.app.data.MyCollection.sync() }
+        com.wolfwheels.app.ui.AppState.resumes.intValue++
     }
 }

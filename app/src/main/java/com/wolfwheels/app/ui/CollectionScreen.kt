@@ -107,52 +107,71 @@ fun CollectionScreen() {
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BigStat("$cars", "coches", Modifier.weight(1f))
-                        BigStat("$models", "modelos", Modifier.weight(1f))
-                        BigStat("$want", "deseos", Modifier.weight(1f))
-                    }
-                    if (spent > 0) Text("Gastado: ${"%.2f".format(spent).replace('.', ',')} €", color = WW.text2, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-                    Spacer(Modifier.height(10.dp))
-                    if (!Account.loggedIn.value) {
-                        Column(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface)
-                                .border(1.dp, WW.orange.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).padding(14.dp)
-                        ) {
-                            Text("Tu colección se guarda en este móvil. Crea una cuenta para no perderla y verla en todos tus aparatos.",
-                                color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
-                            Spacer(Modifier.height(10.dp))
-                            PrimaryButton("Entrar o crear cuenta", Modifier.fillMaxWidth()) { AppState.push(Route.Account) }
+                    // Garage summary
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(WW.surface)
+                            .border(1.5.dp, WW.accent, RoundedCornerShape(18.dp)).padding(16.dp)
+                    ) {
+                        Text("TU GARAJE", color = WW.text3, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text("$cars", style = androidx.compose.ui.text.TextStyle(brush = WW.accent), fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+                                fontStyle = FontStyle.Italic, fontSize = 56.sp, lineHeight = 58.sp)
+                            Text(if (cars == 1) " COCHE" else " COCHES", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+                                fontStyle = FontStyle.Italic, fontSize = 22.sp, modifier = Modifier.padding(bottom = 10.dp))
                         }
-                    } else {
-                        val err = MyCollection.lastError.value
-                        Text(
-                            when { MyCollection.syncing.value -> "Sincronizando…"; err != null -> err; else -> "Guardada en tu cuenta (${Account.email.value})" },
-                            color = if (err != null) WW.orange else WW.text3, fontSize = 13.sp
-                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MiniStat("$models", "modelos", Modifier.weight(1f))
+                            MiniStat("$want", "deseos", Modifier.weight(1f))
+                            MiniStat("${dups.sumOf { it.qty - 1 }}", "repes", Modifier.weight(1f))
+                            MiniStat("${haveItems.count { it.th > 0 }}", "TH/STH", Modifier.weight(1f))
+                        }
+                        if (spent > 0) Text("Gastado: ${"%.2f".format(spent).replace('.', ',')} €", color = WW.text2, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+                        Spacer(Modifier.height(8.dp))
+                        if (Account.loggedIn.value) {
+                            val err = MyCollection.lastError.value
+                            Text(
+                                when { MyCollection.syncing.value -> "Sincronizando…"; err != null -> err; else -> "✓ Guardada en tu cuenta" },
+                                color = if (err != null) WW.orange else WW.text3, fontSize = 12.sp
+                            )
+                        } else {
+                            Text("Guardada solo en este móvil · Crea una cuenta ›", color = WW.amber, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                                modifier = Modifier.clickable { AppState.push(Route.Account) })
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PrimaryButton("Escanear", Modifier.weight(1f)) { AppState.push(Route.Scan) }
+                        SecondaryButton("Exportar", Modifier.weight(1f)) { export() }
                     }
                     Spacer(Modifier.height(14.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { Pill("Tengo · ${haveItems.size}", tab == "have") { tab = "have" } }
-                        item { Pill("Quiero · $want", tab == "want") { tab = "want" } }
-                        item { Pill("Repetidos · ${dups.size}", tab == "dup") { tab = "dup" } }
-                        item { Pill("Series", tab == "series") { tab = "series" } }
+                    // Tabs
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(4.dp)) {
+                        listOf("have" to "Tengo", "want" to "Quiero", "dup" to "Repes", "series" to "Series").forEach { (k, l) ->
+                            val on = tab == k
+                            Box(
+                                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).then(if (on) Modifier.background(WW.accent) else Modifier)
+                                    .clickable { tab = k }.padding(vertical = 9.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(l.uppercase(), color = if (on) WW.onAccent else WW.text2, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+                                    fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                            }
+                        }
                     }
                     if (tab != "series") {
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Input(query, "Buscar en mi colección", Modifier.weight(1f)) { query = it }
+                            Spacer(Modifier.padding(4.dp))
+                            SmallChip(listOf("Recientes", "Por año", "A-Z")[sort], true) { sort = (sort + 1) % 3 }
+                        }
                         if (garages.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 item { SmallChip("Todos los garajes", garage == null) { garage = null } }
                                 items(garages.size) { i -> SmallChip(garages[i], garage == garages[i]) { garage = if (garage == garages[i]) null else garages[i] } }
                             }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Input(query, "Buscar en mi colección", Modifier.weight(1f)) { query = it }
-                            Spacer(Modifier.padding(4.dp))
-                            SmallChip(listOf("Recientes", "Por año", "A-Z")[sort], true) { sort = (sort + 1) % 3 }
-                            Spacer(Modifier.padding(4.dp))
-                            ColumnsToggle()
                         }
                     }
                 }
@@ -170,7 +189,14 @@ fun CollectionScreen() {
                         }, color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 20.dp)
                     )
                 }
-                items(list, key = { it.key }) { item -> CollectionCard(item) }
+                if (sort == 1) {
+                    list.groupBy { it.year.take(4).ifBlank { "Sin año" } }.forEach { (y, group) ->
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "y$y") { Heading(y, Modifier.padding(top = 10.dp), size = 20, trailing = "${group.sumOf { it.qty }}") }
+                        items(group, key = { it.key }) { item -> CollectionCard(item) }
+                    }
+                } else {
+                    items(list, key = { it.key }) { item -> CollectionCard(item) }
+                }
             }
             item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)) }
         }
@@ -244,6 +270,14 @@ private fun SeriesProgress(have: List<MyCollection.Item>) {
                     color = WW.text3, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun MiniStat(value: String, label: String, modifier: Modifier) {
+    Column(modifier.clip(RoundedCornerShape(10.dp)).background(WW.surface2).padding(horizontal = 8.dp, vertical = 6.dp)) {
+        Text(value, color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 20.sp)
+        Text(label.uppercase(), color = WW.text3, fontSize = 10.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 

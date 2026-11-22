@@ -234,7 +234,6 @@ fun HomeScreen() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Heading(title, Modifier.weight(1f).padding(top = 4.dp, bottom = 2.dp), size = 22,
                         trailing = if (cars.isNotEmpty()) "${cars.size}${if (finished) "" else "+"}" else null)
-                    ColumnsToggle()
                 }
             }
             itemsIndexed(cars, key = { _, c -> c.title }) { _, car -> CarCard(car) { AppState.open(car.title) } }

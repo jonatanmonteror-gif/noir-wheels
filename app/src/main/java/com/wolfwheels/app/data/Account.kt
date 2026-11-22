@@ -25,10 +25,17 @@ object Account {
         loggedIn.value = true
     }
 
+    /** Creates the account; the server sends a 6-digit code to the email (the account works once verified). */
     suspend fun register(name: String, email: String, password: String) {
-        save(Server.call("register", JSONObject().put("name", name).put("email", email).put("password", password)))
+        Server.call("register", JSONObject().put("name", name).put("email", email).put("password", password))
+    }
+
+    suspend fun verify(email: String, code: String) {
+        save(Server.call("verify", JSONObject().put("email", email).put("code", code)))
         MyCollection.sync(force = true)
     }
+
+    suspend fun resend(email: String) { Server.call("resend", JSONObject().put("email", email)) }
 
     suspend fun login(email: String, password: String) {
         save(Server.call("login", JSONObject().put("email", email).put("password", password)))

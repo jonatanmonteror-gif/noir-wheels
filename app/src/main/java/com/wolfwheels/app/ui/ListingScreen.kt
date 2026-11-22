@@ -81,8 +81,7 @@ fun ListingScreen(label: String, target: String) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Heading(label, Modifier.weight(1f), size = 22, trailing = list?.size?.let { n -> if (n == cars?.size) "$n" else "$n de ${cars?.size}" })
-                        ColumnsToggle()
-                    }
+                        }
                     if (!cars.isNullOrEmpty()) {
                         Spacer(Modifier.height(10.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {

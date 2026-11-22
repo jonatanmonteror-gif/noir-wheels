@@ -3,13 +3,15 @@
  * Wolf Wheels · cuentas, colección y fotos de respaldo.
  *
  * Instalación: sube esta carpeta (api.php + .htaccess) a /public_html/wolf-wheels/ de tu hosting.
- * Para las fotos de eBay, crea también config.php (NO va en GitHub) con:
- *   <?php const EBAY_CLIENT_ID = '…'; const EBAY_CLIENT_SECRET = '…';
+ * config.php (NO va en GitHub), opcional:
+ *   <?php const EBAY_CLIENT_ID = '…'; const EBAY_CLIENT_SECRET = '…'; const MAIL_FROM = 'Wolf Wheels <no-reply@tudominio>';
  * La carpeta "data" se crea sola y queda protegida.
  *
  * Acciones (?a=…):
- *   register  POST {name,email,password}  → {token,name,email}
- *   login     POST {email,password}       → {token,name,email}
+ *   register  POST {name,email,password}  → {pending:true}  (manda un código de 6 cifras al email)
+ *   verify    POST {email,code}           → {token,name,email}  (activa la cuenta)
+ *   resend    POST {email}                → {ok}  (vuelve a mandar el código)
+ *   login     POST {email,password}       → {token,name,email}  ·  403 unverified si falta verificar
  *   me        GET  (Authorization: Bearer)
  *   logout    POST (Bearer)
  *   col       GET  (Bearer) → {items}   ·   POST {items} → mezcla por elemento (gana el cambio más reciente) → {items}
@@ -88,6 +90,38 @@ function tooMany(string $email, bool $failed = false): bool {
     });
 }
 
+/** Crea un código nuevo para ese email, lo guarda (cifrado) y lo manda por correo. */
+function sendCode(string $email, string $name): string {
+    global $dir;
+    $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $ok = locked("$dir/users.json", function ($users) use ($email, $code) {
+        if (!isset($users[$email])) return [null, 'fail'];
+        $u = $users[$email];
+        $now = time();
+        $sent = array_values(array_filter($u['sent'] ?? [], fn($t) => $t > $now - 3600));
+        if (count($sent) >= 6 || (end($sent) ?: 0) > $now - 45) return [null, 'rate'];   // máx. 6 por hora, 1 cada 45 s
+        $sent[] = $now;
+        $u['code'] = password_hash($code, PASSWORD_DEFAULT);
+        $u['codeExp'] = $now + 1800;   // 30 minutos
+        $u['codeTries'] = 0;
+        $u['sent'] = $sent;
+        $users[$email] = $u;
+        return [$users, 'ok'];
+    });
+    if ($ok !== 'ok') return $ok;
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    $from = defined('MAIL_FROM') ? MAIL_FROM : "Wolf Wheels <no-reply@$host>";
+    $subject = '=?UTF-8?B?' . base64_encode("Tu código de Wolf Wheels: $code") . '?=';
+    $safe = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $html = "<div style=\"font-family:Arial,sans-serif;background:#0B0C0F;color:#F4F4F5;padding:28px;border-radius:14px;max-width:480px\">"
+        . "<div style=\"font-size:22px;font-weight:800;font-style:italic\">WOLF <span style=\"color:#FF7A1A\">WHEELS</span></div>"
+        . "<p style=\"color:#A3A7B0\">Hola $safe, este es tu código para activar la cuenta:</p>"
+        . "<div style=\"font-size:36px;font-weight:800;letter-spacing:8px;color:#FFB81C;margin:18px 0\">$code</div>"
+        . "<p style=\"color:#6B707A;font-size:13px\">Caduca en 30 minutos. Si no has creado una cuenta en Wolf Wheels, ignora este correo.</p></div>";
+    $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\n";
+    return @mail($email, $subject, $html, $headers) ? 'ok' : 'fail';
+}
+
 $a = $_GET['a'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -101,14 +135,50 @@ case 'register': {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail(400, 'email');
     if (mb_strlen($pass) < 6) fail(400, 'password');
     if ($name === '') $name = explode('@', $email)[0];
-    $uid = locked("$dir/users.json", function ($users) use ($email, $name, $pass) {
-        if (isset($users[$email])) return [null, null];
-        $id = bin2hex(random_bytes(12));
-        $users[$email] = ['id' => $id, 'name' => $name, 'hash' => password_hash($pass, PASSWORD_DEFAULT), 'created' => time()];
-        return [$users, $id];
+    $r = locked("$dir/users.json", function ($users) use ($email, $name, $pass) {
+        $old = $users[$email] ?? null;
+        if ($old && !empty($old['verified'])) return [null, 'exists'];
+        // Sin verificar: se puede volver a registrar (p. ej. si se equivocó de contraseña)
+        $users[$email] = ['id' => $old['id'] ?? bin2hex(random_bytes(12)), 'name' => $name, 'hash' => password_hash($pass, PASSWORD_DEFAULT),
+            'created' => $old['created'] ?? time(), 'verified' => false, 'sent' => $old['sent'] ?? []];
+        return [$users, 'ok'];
     });
-    if ($uid === null) fail(409, 'exists');
-    out(['token' => newToken($uid), 'name' => $name, 'email' => $email]);
+    if ($r === 'exists') fail(409, 'exists');
+    $sc = sendCode($email, $name);
+    if ($sc === 'fail') fail(502, 'mail');
+    out(['pending' => true, 'email' => $email, 'sent' => $sc === 'ok']);
+}
+case 'verify': {
+    if ($method !== 'POST') fail(405, 'method');
+    $b = body();
+    $email = strtolower(trim($b['email'] ?? ''));
+    $code = preg_replace('/\D/', '', (string)($b['code'] ?? ''));
+    if (tooMany($email)) fail(429, 'wait');
+    $u = locked("$dir/users.json", function ($users) use ($email, $code) {
+        $u = $users[$email] ?? null;
+        if (!$u) return [null, 'wrong'];
+        if (!empty($u['verified'])) return [null, $u];
+        if (($u['codeExp'] ?? 0) < time()) return [null, 'expired'];
+        if (($u['codeTries'] ?? 0) >= 5) return [null, 'expired'];
+        if (!password_verify($code, $u['code'] ?? '')) { $u['codeTries'] = ($u['codeTries'] ?? 0) + 1; $users[$email] = $u; return [$users, 'wrong'];}
+        $u['verified'] = true; unset($u['code'], $u['codeExp'], $u['codeTries']);
+        $users[$email] = $u;
+        return [$users, $u];
+    });
+    if ($u === 'wrong') { tooMany($email, true); fail(401, 'code'); }
+    if ($u === 'expired') fail(410, 'expired');
+    out(['token' => newToken($u['id']), 'name' => $u['name'], 'email' => $email]);
+}
+case 'resend': {
+    if ($method !== 'POST') fail(405, 'method');
+    $email = strtolower(trim(body()['email'] ?? ''));
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $u = $users[$email] ?? null;
+    if (!$u || !empty($u['verified'])) out(['ok' => true]);
+    $sc = sendCode($email, $u['name']);
+    if ($sc === 'rate') fail(429, 'mail_wait');
+    if ($sc === 'fail') fail(502, 'mail');
+    out(['ok' => true]);
 }
 case 'login': {
     if ($method !== 'POST') fail(405, 'method');
@@ -119,6 +189,7 @@ case 'login': {
     $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
     $u = $users[$email] ?? null;
     if (!$u || !password_verify($pass, $u['hash'])) { tooMany($email, true); fail(401, 'wrong'); }
+    if (array_key_exists('verified', $u) && !$u['verified']) { sendCode($email, $u['name']); fail(403, 'unverified'); }
     out(['token' => newToken($u['id']), 'name' => $u['name'], 'email' => $email]);
 }
 case 'me': {
