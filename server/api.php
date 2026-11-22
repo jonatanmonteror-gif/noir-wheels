@@ -97,6 +97,38 @@ function sender(): string {
     return defined('MAIL_FROM') ? MAIL_FROM : "Wolf Wheels <wolfwheels@$host>";
 }
 
+/**
+ * Envía por SMTP con el buzón de Wolf Wheels (smtp.hostinger.com, SSL 465) si config.php tiene SMTP_PASS.
+ * Así el correo sale firmado por el servidor de correo de Hostinger y Gmail lo acepta. Sin SMTP_PASS usa mail().
+ */
+function smtpSend(string $to, string $subjectEnc, string $html, string $fromHeader): bool {
+    $user = defined('SMTP_USER') ? SMTP_USER : 'wolfwheels@jonatanmontero.es';
+    $host = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.hostinger.com';
+    $fp = @stream_socket_client("ssl://$host:465", $errno, $errstr, 15);
+    if (!$fp) { error_log("WOLF SMTP connect: $errstr"); return false; }
+    stream_set_timeout($fp, 15);
+    $read = function () use ($fp) { $out = ''; while (($l = fgets($fp, 515)) !== false) { $out .= $l; if (strlen($l) < 4 || $l[3] === ' ') break; } return $out; };
+    $cmd = function (string $c, string $expect) use ($fp, $read) {
+        if ($c !== '') fwrite($fp, $c . "\r\n");
+        $r = $read();
+        if (strpos($r, $expect) !== 0) { error_log('WOLF SMTP ' . (str_starts_with($c, 'AUTH') || strlen($c) > 40 ? substr($c, 0, 10) : $c) . ' -> ' . trim($r)); return false; }
+        return true;
+    };
+    $ok = $cmd('', '220') && $cmd('EHLO jonatanmontero.es', '250') && $cmd('AUTH LOGIN', '334')
+        && $cmd(base64_encode($user), '334') && $cmd(base64_encode(SMTP_PASS), '235')
+        && $cmd("MAIL FROM:<$user>", '250') && $cmd("RCPT TO:<$to>", '250') && $cmd('DATA', '354');
+    if ($ok) {
+        $date = date('r');
+        $id = bin2hex(random_bytes(12)) . '@jonatanmontero.es';
+        $body = chunk_split(base64_encode($html));
+        $msg = "Date: $date\r\nMessage-ID: <$id>\r\nFrom: $fromHeader\r\nReply-To: $fromHeader\r\nTo: <$to>\r\nSubject: $subjectEnc\r\n"
+            . "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n$body\r\n.";
+        $ok = $cmd($msg, '250');
+    }
+    @fwrite($fp, "QUIT\r\n"); fclose($fp);
+    return $ok;
+}
+
 /** Correo con la imagen de Wolf Wheels: logo, fondo oscuro y acento naranja. */
 function wolfMail(string $to, string $subject, string $title, string $body, string $foot = ''): bool {
     $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
@@ -115,8 +147,9 @@ function wolfMail(string $to, string $subject, string $title, string $body, stri
         . '</table></td></tr></table></body></html>';
     $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $from = sender();
+    if (defined('SMTP_PASS') && SMTP_PASS !== '') return smtpSend($to, $subjectEnc, $html, $from);
     $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\nReply-To: $from\r\n";
-    return @mail($to, $subjectEnc, $html, $headers);
+    return @mail($to, $subjectEnc, $html, $headers, '-f' . preg_replace('/.*<([^>]+)>.*/', '$1', $from));
 }
 
 /** Crea un código nuevo para ese email, lo guarda (cifrado) y lo manda por correo. */

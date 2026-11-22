@@ -8,3 +8,7 @@ const EBAY_CLIENT_SECRET = '';
 const MAIL_FROM = 'Wolf Wheels <wolfwheels@jonatanmontero.es>';
 // Te llega un correo con cada registro nuevo y cada cuenta verificada
 const ADMIN_EMAIL = '';
+
+// Envío por SMTP con el buzón de Wolf Wheels (recomendado: sin esto Gmail puede no entregar los correos)
+const SMTP_USER = 'wolfwheels@jonatanmontero.es';
+const SMTP_PASS = '';   // la contraseña del buzón
