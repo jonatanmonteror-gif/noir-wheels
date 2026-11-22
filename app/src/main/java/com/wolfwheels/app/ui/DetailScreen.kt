@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
@@ -409,8 +410,17 @@ fun ThBadge(th: Int) {
 @Composable
 private fun ToggleButton(text: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
+    // Small "pop" when it turns on
+    val scale = remember { androidx.compose.animation.core.Animatable(1f) }
+    var first by remember { mutableStateOf(true) }
+    LaunchedEffect(on) {
+        if (first) { first = false; return@LaunchedEffect }
+        if (on) { scale.animateTo(1.07f, androidx.compose.animation.core.tween(110)); scale.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.45f)) }
+    }
+    val border by androidx.compose.animation.animateColorAsState(if (on) WW.orange else WW.line, label = "border")
     Box(
-        modifier.clip(shape).then(if (on) Modifier.background(WW.accent) else Modifier.background(WW.surface2).border(1.dp, WW.line, shape))
+        modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }.clip(shape)
+            .then(if (on) Modifier.background(WW.accent) else Modifier.background(WW.surface2).border(1.dp, border, shape))
             .clickable(onClick = onClick).padding(vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {

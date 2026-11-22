@@ -86,8 +86,8 @@ fun HomeExtras() {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QuickButton("Lista para la tienda", if (want > 0) "$want deseos" else "Tus «La quiero»", Modifier.weight(1f)) {
-                AppState.garageTab.value = "want"; AppState.push(Route.Collection)
+            QuickButton("Modo tienda", if (want > 0) "$want en tu lista" else "Tus «La quiero»", Modifier.weight(1f)) {
+                AppState.push(Route.Shop)
             }
             QuickButton("Coche al azar", if (randomBusy) "Buscando…" else "Descubre uno", Modifier.weight(1f)) {
                 if (!randomBusy) {

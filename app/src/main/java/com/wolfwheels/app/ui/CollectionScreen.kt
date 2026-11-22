@@ -2,6 +2,7 @@ package com.wolfwheels.app.ui
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,7 +75,9 @@ fun CollectionScreen() {
     val cars = haveItems.sumOf { it.qty }
     val models = haveItems.map { it.title }.distinct().size
     val want = all.count { it.status == "want" }
-    val dups = haveItems.filter { it.qty > 1 }
+    val dups = haveItems.filter { it.qty > 1 || it.trade }
+    var publicUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Account.loggedIn.value) { if (Account.loggedIn.value) publicUrl = runCatching { Account.getPublic().url }.getOrNull() }
     val spent = haveItems.mapNotNull { it.price }.sum()
     val garages = MyCollection.garages()
 
@@ -182,12 +185,17 @@ fun CollectionScreen() {
                         PrimaryButton("Escanear", Modifier.weight(1f)) { AppState.push(Route.Scan) }
                         SecondaryButton("Exportar", Modifier.weight(1f)) { export() }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SecondaryButton("Añadir a mano", Modifier.weight(1f)) { AppState.push(Route.CustomCar(null)) }
+                        SecondaryButton("Modo tienda", Modifier.weight(1f)) { AppState.push(Route.Shop) }
+                    }
                     Spacer(Modifier.height(14.dp))
                     // View options, folded by default so the garage stays clean
                     val tabName = mapOf("have" to "Tengo", "want" to "Quiero", "dup" to "Repes", "series" to "Series")[tab] ?: "Tengo"
                     val summary = listOfNotNull(tabName, listOf("Recientes", "Por año", "A-Z")[sort].takeIf { tab != "series" },
                         garage, query.takeIf { it.isNotBlank() }?.let { "“$it”" }).joinToString(" · ")
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp))) {
+                    Column(Modifier.fillMaxWidth().animateContentSize().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp))) {
                         Row(
                             Modifier.fillMaxWidth().clickable { customOpen = !customOpen }.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -239,10 +247,23 @@ fun CollectionScreen() {
                         when {
                             query.isNotBlank() || garage != null -> "Nada con estos filtros."
                             tab == "want" -> "Tu lista de deseos está vacía. Pulsa «La quiero» en la versión que buscas."
-                            tab == "dup" -> "No tienes coches repetidos. Sube la cantidad en la ficha de la versión si tienes más de uno."
+                            tab == "dup" -> "No tienes repetidos ni coches para cambiar. Sube la cantidad o marca «Para cambiar» en la ficha de la versión."
                             else -> "Aún no has marcado ningún coche. Abre un modelo, elige una versión y pulsa «La tengo», o escanea la tarjeta."
                         }, color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 20.dp)
                     )
+                }
+                if (tab == "dup" && list.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                    PrimaryButton("Compartir lista de cambios", Modifier.fillMaxWidth()) {
+                        val lines = haveItems.filter { it.trade || it.qty > 1 }.sortedBy { it.title }.joinToString("\n") { i ->
+                            "• ${i.title}" + listOf(i.year, i.color).filter { it.isNotBlank() }.joinToString(" · ", " (", ")") +
+                                (if (i.qty > 1) " ×${i.qty - 1}" else "") + (if (i.th == 2) " STH" else if (i.th == 1) " TH" else "")
+                        }
+                        val link = publicUrl?.let { "\n\nMi garaje: $it" } ?: ""
+                        runCatching {
+                            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                                .putExtra(Intent.EXTRA_TEXT, "Coches que tengo para cambiar (Wolf Wheels):\n$lines$link"), "Compartir lista de cambios"))
+                        }
+                    }
                 }
                 if (sort == 1) {
                     list.groupBy { it.year.take(4).ifBlank { "Sin año" } }.forEach { (y, group) ->
@@ -262,7 +283,7 @@ fun CollectionScreen() {
 private fun CollectionCard(item: MyCollection.Item) {
     Column(
         Modifier.clip(RoundedCornerShape(16.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(16.dp))
-            .clickable { AppState.open(item.title, item.key) }
+            .clickable { if (item.custom) AppState.push(Route.CustomCar(item.key)) else AppState.open(item.title, item.key) }
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(WW.showroom), contentAlignment = Alignment.Center) {
             when {

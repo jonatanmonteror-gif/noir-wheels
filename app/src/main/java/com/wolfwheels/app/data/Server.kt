@@ -45,6 +45,8 @@ object Server {
         e is ApiError && e.reason == "mail" -> "No se pudo enviar el correo. Inténtalo en un momento."
         e is ApiError && e.reason == "mail_wait" -> "Espera un minuto antes de pedir otro código."
         e is ApiError && e.reason == "unverified" -> "Falta verificar tu email. Te hemos mandado un código nuevo."
+        e is ApiError && e.reason == "slug" -> "El nombre del enlace debe tener de 3 a 30 letras, números o guiones."
+        e is ApiError && e.reason == "slug_taken" -> "Ese nombre ya lo usa otra persona. Prueba con otro."
         e is ApiError && e.code == 404 -> "El servidor de Wolf Wheels aún no está instalado."
         e is ApiError -> "El servidor respondió con un error (${e.code})."
         else -> "No hay conexión con el servidor. Revisa internet."

@@ -44,6 +44,20 @@ object Account {
         MyCollection.sync(force = true)
     }
 
+    data class Public(val on: Boolean, val slug: String, val want: Boolean, val url: String?)
+
+    /** Public garage settings (web page jonatanmontero.es/garaje/<slug>). */
+    suspend fun getPublic(): Public {
+        val j = Server.call("public", token = token)
+        val slug = j.optString("slug")
+        return Public(j.optBoolean("on"), slug, j.optBoolean("want"), if (j.optBoolean("on")) "https://jonatanmontero.es/garaje/$slug" else null)
+    }
+
+    suspend fun setPublic(on: Boolean, slug: String, want: Boolean): Public {
+        val j = Server.call("public", JSONObject().put("on", on).put("slug", slug).put("want", want), token = token)
+        return Public(j.optBoolean("on"), j.optString("slug"), j.optBoolean("want"), j.optString("url").ifEmpty { null }.takeIf { j.optBoolean("on") })
+    }
+
     suspend fun resend(email: String) { Server.call("resend", JSONObject().put("email", email)) }
 
     suspend fun login(email: String, password: String) {

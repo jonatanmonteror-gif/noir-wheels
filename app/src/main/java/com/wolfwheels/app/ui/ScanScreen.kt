@@ -71,6 +71,8 @@ fun ScanScreen() {
     var msg by remember { mutableStateOf<String?>(null) }
     var photo by remember { mutableStateOf<File?>(null) }
     var baseCode by remember { mutableStateOf("") }
+    var serial by remember { mutableStateOf(false) }                 // scan card after card without leaving
+    val added = remember { androidx.compose.runtime.mutableStateListOf<String>() }   // added in this session
 
     fun search(list: List<String>) {
         if (list.isEmpty()) { msg = "No he encontrado ningún número de juguete. Prueba con más luz o escríbelo."; return }
@@ -86,7 +88,7 @@ fun ScanScreen() {
             busy = null
             results = out
             if (out.isEmpty()) msg = "No encuentro ese número en la wiki (${list.joinToString(", ")}). Puede ser muy nuevo o estar mal leído."
-            else if (out.size == 1 && out[0].second.size == 1) {
+            else if (!serial && out.size == 1 && out[0].second.size == 1) {
                 val m = out[0].second[0]
                 AppState.push(Route.Detail(m.title, selectKey = m.version.key(m.title)))
             }
@@ -119,8 +121,22 @@ fun ScanScreen() {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().imePadding()) {
             Text("Haz una foto a la parte de atrás del blíster, donde viene el número de juguete (por ejemplo HKG43). La app encuentra el coche y la versión exacta.",
                 color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
-            Spacer(Modifier.height(14.dp))
-            PrimaryButton("Hacer foto a la tarjeta", Modifier.fillMaxWidth(), enabled = busy == null) {
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(WW.surface)
+                .border(1.dp, if (serial) WW.orange else WW.line, RoundedCornerShape(12.dp)).clickable { serial = !serial }.padding(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("ESCANEO EN SERIE", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                    Text("Varias tarjetas seguidas: añade cada una con un toque y pasa a la siguiente.", color = WW.text3, fontSize = 12.sp, lineHeight = 16.sp)
+                }
+                androidx.compose.material3.Switch(checked = serial, onCheckedChange = { serial = it },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = WW.orange, checkedThumbColor = WW.text))
+            }
+            if (serial && added.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text("Añadidos ahora (${added.size}): ${added.takeLast(4).joinToString(", ")}${if (added.size > 4) "…" else ""}", color = WW.amber, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton(if (serial && results != null) "Siguiente tarjeta" else "Hacer foto a la tarjeta", Modifier.fillMaxWidth(), enabled = busy == null) {
                 val dir = File(ctx.cacheDir, "scan").apply { mkdirs() }
                 val f = File(dir, "card.jpg").also { it.delete() }
                 photo = f
@@ -185,7 +201,17 @@ fun ScanScreen() {
                     }
                     Spacer(Modifier.height(10.dp))
                 }
-                matches.forEach { m -> MatchRow(m) }
+                matches.forEach { m ->
+                    MatchRow(m)
+                    if (serial) {
+                        val k = m.version.key(m.title)
+                        SecondaryButton(if (MyCollection.statusOf(k) == "have") "+1 (ya tienes ${MyCollection.items[k]?.qty ?: 1})" else "+ La tengo",
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                            MyCollection.addOne(m.title, m.version, m.version.photo)
+                            added += m.title
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(30.dp))
         }

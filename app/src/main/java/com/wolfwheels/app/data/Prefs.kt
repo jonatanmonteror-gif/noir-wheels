@@ -29,6 +29,18 @@ object Prefs {
     val columns by lazy { androidx.compose.runtime.mutableIntStateOf(sp.getInt("columns", 2).coerceIn(1, 3)) }
     fun setColumns(n: Int) { columns.intValue = n; sp.edit().putInt("columns", n).apply() }
 
+    /** Notifications: new castings in the wiki / news about cars in my wish list. */
+    var notifyNew: Boolean
+        get() = sp.getBoolean("notify_new", false)
+        set(v) = sp.edit().putBoolean("notify_new", v).apply()
+    var notifyWish: Boolean
+        get() = sp.getBoolean("notify_wish", false)
+        set(v) = sp.edit().putBoolean("notify_wish", v).apply()
+    /** What the news check already saw (JSON). */
+    var newsSeen: String
+        get() = sp.getString("news_seen", "") ?: ""
+        set(v) = sp.edit().putString("news_seen", v).apply()
+
     /** Garages created by me (also the empty ones). */
     var garages: List<String>
         get() = (sp.getString("garages", "") ?: "").split('\n').filter { it.isNotBlank() }

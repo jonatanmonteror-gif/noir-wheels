@@ -79,6 +79,8 @@ fun AccountScreen() {
                     Modifier.fillMaxWidth())
                 MyCollection.lastError.value?.let { Spacer(Modifier.height(8.dp)); Text(it, color = WW.orange, fontSize = 13.sp) }
                 Spacer(Modifier.height(16.dp))
+                PublicGarage()
+                Spacer(Modifier.height(16.dp))
                 PrimaryButton("Sincronizar ahora", Modifier.fillMaxWidth(), enabled = !MyCollection.syncing.value) {
                     scope.launch { MyCollection.sync(force = true) }
                 }
@@ -216,5 +218,71 @@ private fun Field(label: String, value: String, type: KeyboardType = KeyboardTyp
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(WW.surface)
                 .border(1.dp, WW.line, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 14.dp)
         )
+    }
+}
+
+/** Public web page of my garage: on/off, link name, show the wish list. */
+@Composable
+private fun PublicGarage() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var loaded by remember { mutableStateOf(false) }
+    var on by remember { mutableStateOf(false) }
+    var slug by remember { mutableStateOf("") }
+    var want by remember { mutableStateOf(false) }
+    var url by remember { mutableStateOf<String?>(null) }
+    var msg by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        runCatching { Account.getPublic() }.onSuccess { p ->
+            on = p.on; want = p.want; url = p.url
+            slug = p.slug.ifBlank { Account.name.value.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').take(30) }
+        }
+        loaded = true
+    }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(14.dp)
+    ) {
+        Heading("Garaje público", size = 17)
+        Spacer(Modifier.height(6.dp))
+        Text("Una página web con tu garaje y tus coches para cambiar, que puedes enviar a otros coleccionistas. Nadie puede tocar nada.",
+            color = WW.text2, fontSize = 13.sp, lineHeight = 18.sp)
+        if (!loaded) return@Column
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Activar", color = WW.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Switch(checked = on, onCheckedChange = { on = it },
+                colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = WW.orange, checkedThumbColor = WW.text))
+        }
+        if (on) {
+            Spacer(Modifier.height(8.dp))
+            Field("Nombre del enlace", slug) { slug = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '-' }.take(30) }
+            Text("jonatanmontero.es/garaje/$slug", color = WW.text3, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Mostrar lo que busco (deseos)", color = WW.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                androidx.compose.material3.Switch(checked = want, onCheckedChange = { want = it },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = WW.orange, checkedThumbColor = WW.text))
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PrimaryButton("Guardar", Modifier.weight(1f)) {
+                msg = null
+                scope.launch {
+                    try { val p = Account.setPublic(on, slug, want); url = p.url; msg = if (p.on) "Listo: tu garaje ya es público." else "Tu garaje ya no es público." }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { msg = Server.message(e) }
+                }
+            }
+            url?.let { u ->
+                SecondaryButton("Compartir", Modifier.weight(1f)) {
+                    runCatching {
+                        ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(android.content.Intent.EXTRA_TEXT, "Mi garaje de Hot Wheels: $u"), "Compartir mi garaje"))
+                    }
+                }
+            }
+        }
+        msg?.let { Spacer(Modifier.height(8.dp)); Text(it, color = WW.amber, fontSize = 13.sp) }
     }
 }

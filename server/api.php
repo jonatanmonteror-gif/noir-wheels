@@ -18,6 +18,8 @@
  *   me        GET  (Authorization: Bearer)
  *   logout    POST (Bearer)
  *   col       GET  (Bearer) → {items}   ·   POST {items} → mezcla por elemento (gana el cambio más reciente) → {items}
+ *   public    GET/POST (Bearer) {on,slug,want} → ajustes del garaje público
+ *   page      GET  u=slug → página web del garaje público (jonatanmontero.es/garaje/slug)
  *   img       GET  q=texto → {url}  (foto de un anuncio de eBay, con caché de 30 días)
  */
 
@@ -30,7 +32,8 @@ if (is_file(__DIR__ . '/config.php')) require __DIR__ . '/config.php';
 function out($data, int $code = 200) { http_response_code($code); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; }
 function fail(int $code, string $msg) { out(['error' => $msg], $code); }
 
-if (($_SERVER['HTTP_X_WOLF_APP'] ?? '') !== APP_KEY) fail(403, 'app');
+// La página pública del garaje se abre desde cualquier navegador; el resto solo desde la app
+if (($_GET['a'] ?? '') !== 'page' && ($_SERVER['HTTP_X_WOLF_APP'] ?? '') !== APP_KEY) fail(403, 'app');
 
 $dir = __DIR__ . '/data';
 foreach ([$dir, "$dir/col", "$dir/img"] as $d) if (!is_dir($d)) mkdir($d, 0700, true);
@@ -383,6 +386,44 @@ case 'sample': {
     $a2 = wolfMail(ADMIN_EMAIL, '[EJEMPLO] Wolf Wheels · Nuevo registro: Usuario de ejemplo', 'Nuevo registro', $b2, 'Aviso automático para el administrador.');
     out(['code_mail' => $a1, 'admin_mail' => $a2]);
 }
+case 'public': {
+    $u = auth();
+    if ($method === 'GET') out(['on' => !empty($u['public']['on']), 'slug' => $u['public']['slug'] ?? '', 'want' => !empty($u['public']['want'])]);
+    $b = body();
+    $on = !empty($b['on']); $want = !empty($b['want']);
+    $slug = strtolower(trim((string)($b['slug'] ?? '')));
+    $slug = preg_replace('/[^a-z0-9-]/', '', strtr($slug, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ñ'=>'n',' '=>'-']));
+    if ($on && !preg_match('/^[a-z0-9][a-z0-9-]{2,29}$/', $slug)) fail(400, 'slug');
+    $r = locked("$dir/public.json", function ($map) use ($slug, $u, $on) {
+        foreach ($map as $s => $uid) if ($uid === $u['id'] && $s !== $slug) unset($map[$s]);
+        if ($on) {
+            if (isset($map[$slug]) && $map[$slug] !== $u['id']) return [null, 'taken'];
+            $map[$slug] = $u['id'];
+        } else unset($map[$slug]);
+        return [$map, 'ok'];
+    });
+    if ($r === 'taken') fail(409, 'slug_taken');
+    locked("$dir/users.json", function ($users) use ($u, $on, $slug, $want) {
+        if (isset($users[$u['email']])) $users[$u['email']]['public'] = ['on' => $on, 'slug' => $slug, 'want' => $want];
+        return [$users, null];
+    });
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    out(['on' => $on, 'slug' => $slug, 'want' => $want, 'url' => $on ? "https://$host/garaje/$slug" : null]);
+}
+case 'page': {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: public, max-age=120');
+    $slug = strtolower((string)($_GET['u'] ?? ''));
+    $map = json_decode(@file_get_contents("$dir/public.json") ?: '[]', true) ?: [];
+    $uid = $map[$slug] ?? null;
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $user = null;
+    foreach ($users as $e => $x) if (($x['id'] ?? '') === $uid && !empty($x['public']['on'])) $user = $x;
+    if (!$user) { http_response_code(404); echo garagePage(null, [], false); exit; }
+    $col = json_decode(@file_get_contents("$dir/col/$uid.json") ?: '[]', true) ?: [];
+    echo garagePage($user, array_values($col['items'] ?? []), !empty($user['public']['want']));
+    exit;
+}
 default:
     fail(404, 'action');
 }
@@ -422,4 +463,62 @@ function ebayImage(string $q): ?string {
         if ($u) return preg_replace('#/s-l\d+\.#', '/s-l500.', $u);
     }
     return null;
+}
+
+/** Página web pública del garaje (solo lectura). */
+function garagePage(?array $user, array $items, bool $showWant): string {
+    $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    $logo = "https://$host/wolf-wheels/logo.png";
+    $css = '*{box-sizing:border-box;margin:0;padding:0}body{background:#0B0C0F;color:#F4F4F5;font:15px/1.5 Inter,system-ui,sans-serif}'
+        . '.w{max-width:1100px;margin:0 auto;padding:22px 18px 60px}header img{width:230px;max-width:60%}'
+        . 'h1{font:800 italic 40px/1.05 "Barlow Condensed",Inter,sans-serif;text-transform:uppercase;margin:26px 0 6px}'
+        . 'h1 span{background:linear-gradient(90deg,#FF3D17,#FFB81C);-webkit-background-clip:text;background-clip:text;color:transparent}'
+        . '.stats{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}.st{background:#15171C;border:1px solid #2A2E37;border-radius:12px;padding:8px 14px}'
+        . '.st b{font:800 italic 26px "Barlow Condensed",sans-serif;color:#FFB81C;display:block;line-height:1}.st small{color:#6B707A;text-transform:uppercase;letter-spacing:1px;font-size:11px}'
+        . 'h2{font:800 italic 22px "Barlow Condensed",sans-serif;text-transform:uppercase;margin:30px 0 12px;display:flex;align-items:center;gap:10px}'
+        . 'h2:before{content:"";width:14px;height:16px;background:linear-gradient(90deg,#FF3D17,#FFB81C);transform:skewX(-16deg)}'
+        . '.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}'
+        . '.c{background:#15171C;border:1px solid #2A2E37;border-radius:14px;overflow:hidden}.c .im{aspect-ratio:4/3;background:#ECECEF;display:flex;align-items:center;justify-content:center;position:relative}'
+        . '.c .im img{max-width:94%;max-height:94%;object-fit:contain}.c .t{padding:8px 10px 10px}.c .n{font:700 italic 16px/1.15 "Barlow Condensed",sans-serif;text-transform:uppercase}'
+        . '.c .s{color:#A3A7B0;font-size:12px}.bd{position:absolute;top:6px;left:6px;background:#FFB81C;color:#14100A;font:800 italic 11px "Barlow Condensed",sans-serif;padding:1px 7px;transform:skewX(-12deg)}'
+        . '.q{position:absolute;top:6px;right:6px;background:#0B0C0F;color:#FFB81C;font-weight:700;font-size:12px;border-radius:99px;padding:1px 8px}'
+        . 'footer{margin-top:50px;color:#6B707A;font-size:13px}footer a{color:#FF7A1A}';
+    $head = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,700;1,800&family=Inter:wght@400;600&display=swap" rel="stylesheet">'
+        . '<style>' . $css . '</style>';
+    if (!$user) return $head . '<title>Wolf Wheels</title></head><body><div class="w"><header><img src="' . $logo . '" alt="Wolf Wheels"></header><h1>Este garaje <span>no es público</span></h1><p style="color:#A3A7B0">O el enlace no es correcto.</p></div></body></html>';
+    $items = array_filter($items, fn($i) => empty($i['deleted']));
+    $have = array_values(array_filter($items, fn($i) => ($i['status'] ?? '') === 'have'));
+    usort($have, fn($a, $b) => ($b['added'] ?? 0) <=> ($a['added'] ?? 0));
+    $want = array_values(array_filter($items, fn($i) => ($i['status'] ?? '') === 'want'));
+    $trade = array_values(array_filter($have, fn($i) => !empty($i['trade'])));
+    $cars = array_sum(array_map(fn($i) => max(1, (int)($i['qty'] ?? 1)), $have));
+    $models = count(array_unique(array_map(fn($i) => $i['title'] ?? '', $have)));
+    $card = function ($i, $extra = '') use ($h) {
+        $img = !empty($i['photo']) ? '<img loading="lazy" src="' . $h($i['photo']) . '" alt="">' : '';
+        $th = (int)($i['th'] ?? 0) === 2 ? '<span class="bd">STH</span>' : ((int)($i['th'] ?? 0) === 1 ? '<span class="bd">TH</span>' : '');
+        $q = $extra !== '' ? '<span class="q">' . $h($extra) . '</span>' : '';
+        return '<div class="c"><div class="im">' . $img . $th . $q . '</div><div class="t"><div class="n">' . $h($i['title'] ?? '') . '</div>'
+            . '<div class="s">' . $h(trim(($i['year'] ?? '') . ' · ' . ($i['color'] ?? ''), ' ·')) . '</div></div></div>';
+    };
+    $name = $user['name'] ?? 'Coleccionista';
+    $out = $head . '<title>Garaje de ' . $h($name) . ' · Wolf Wheels</title><meta property="og:title" content="El garaje de ' . $h($name) . '">'
+        . '<meta property="og:image" content="' . $logo . '"></head><body><div class="w"><header><img src="' . $logo . '" alt="Wolf Wheels"></header>'
+        . '<h1>El garaje de <span>' . $h($name) . '</span></h1><div class="stats"><div class="st"><b>' . $cars . '</b><small>coches</small></div>'
+        . '<div class="st"><b>' . $models . '</b><small>modelos</small></div><div class="st"><b>' . count($trade) . '</b><small>para cambiar</small></div></div>';
+    if ($trade) {
+        $out .= '<h2>Para cambiar</h2><div class="g">';
+        foreach ($trade as $i) { $q = max(1, (int)($i['qty'] ?? 1)); $out .= $card($i, $q > 1 ? '×' . ($q - 1) . ' repe' . ($q > 2 ? 's' : '') : 'cambio'); }
+        $out .= '</div>';
+    }
+    if ($showWant && $want) {
+        $out .= '<h2>Busco</h2><div class="g">';
+        foreach ($want as $i) $out .= $card($i);
+        $out .= '</div>';
+    }
+    $out .= '<h2>Mi garaje</h2><div class="g">';
+    foreach ($have as $i) { $q = max(1, (int)($i['qty'] ?? 1)); $out .= $card($i, $q > 1 ? '×' . $q : ''); }
+    if (!$have) $out .= '<p style="color:#A3A7B0">Aún vacío.</p>';
+    return $out . '</div><footer>Hecho con <b>Wolf Wheels</b> · tu garaje de Hot Wheels</footer></div></body></html>';
 }

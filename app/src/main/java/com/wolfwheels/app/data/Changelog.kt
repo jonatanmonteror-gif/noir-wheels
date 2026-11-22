@@ -5,6 +5,15 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Garaje público y modo tienda", listOf(
+            "Garaje público: una página web con tu garaje y tus coches para cambiar (Mi cuenta → Garaje público).",
+            "Marca coches «Para cambiar» y comparte tu lista de cambios desde la pestaña Repes.",
+            "Modo tienda: letra grande, tu lista de deseos, el escáner a mano y la pantalla siempre encendida.",
+            "Escaneo en serie: varias tarjetas seguidas, añadiendo cada una con un toque.",
+            "Añadir coches a mano (customs, otras marcas…) con tu foto y tus datos.",
+            "Avisos en el móvil de nuevos modelos y de novedades de tu lista de deseos (Ajustes → Avisos).",
+            "Animaciones suaves al abrir pantallas, al marcar «La tengo» y al conseguir un logro.",
+        )),
         Entry("Inicio, logros y más", listOf(
             "Inicio renovado: resumen de Mi garaje, lista para la tienda, coche al azar, vistos recientemente y nuevos modelos 2026.",
             "¿Has olvidado la contraseña? Te llega un código al correo para poner una nueva.",

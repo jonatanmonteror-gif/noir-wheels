@@ -32,11 +32,15 @@ object MyCollection {
         val seriesLink: String? = null,
         val th: Int = 0,
         val added: Long = t,
+        val trade: Boolean = false,     // offered for swapping (public garage "Para cambiar")
+        val custom: Boolean = false,    // added by hand (not in the wiki)
+        val brand: String = "",         // for cars added by hand
     ) {
         fun json(): JSONObject = JSONObject().put("key", key).put("title", title).put("year", year).put("series", series)
             .put("color", color).put("toy", toy).put("photo", photo ?: "").put("status", status).put("t", t).put("deleted", deleted)
             .put("qty", qty).put("cond", cond).put("price", price ?: JSONObject.NULL).put("notes", notes).put("garage", garage)
             .put("myPhoto", myPhoto ?: "").put("seriesLink", seriesLink ?: "").put("th", th).put("added", added)
+            .put("trade", trade).put("custom", custom).put("brand", brand)
         companion object {
             fun from(j: JSONObject) = Item(
                 j.optString("key"), j.optString("title"), j.optString("year"), j.optString("series"), j.optString("color"),
@@ -45,6 +49,7 @@ object MyCollection {
                 price = if (j.isNull("price") || !j.has("price")) null else j.optDouble("price").takeIf { !it.isNaN() },
                 notes = j.optString("notes"), garage = j.optString("garage"), myPhoto = j.optString("myPhoto").ifEmpty { null },
                 seriesLink = j.optString("seriesLink").ifEmpty { null }, th = j.optInt("th"), added = j.optLong("added", j.optLong("t")),
+                trade = j.optBoolean("trade"), custom = j.optBoolean("custom"), brand = j.optString("brand"),
             )
         }
     }
@@ -61,6 +66,7 @@ object MyCollection {
     private var pending: Job? = null
 
     fun init(ctx: Context) {
+        if (this::file.isInitialized) return
         file = File(ctx.filesDir, "collection.json")
         runCatching {
             val arr = JSONArray(file.readText())
@@ -89,6 +95,22 @@ object MyCollection {
                 photo = old?.photo ?: photo ?: v.photo, seriesLink = v.seriesLink ?: old?.seriesLink, th = v.th)
         persist()
         scheduleSync()
+    }
+
+    /** A car that is not in the wiki (custom, other brands…). Returns its key. */
+    fun addCustom(title: String, brand: String, year: String, series: String, color: String, toy: String): String {
+        val now = System.currentTimeMillis()
+        val key = "custom|" + java.util.UUID.randomUUID().toString()
+        items[key] = Item(key, title, year, series, color, toy, null, "have", now, custom = true, brand = brand, added = now)
+        persist(); scheduleSync()
+        return key
+    }
+
+    /** One more of a version I already have (serial scanning), or adds it. */
+    fun addOne(title: String, v: Wiki.Version, photo: String?) {
+        val key = v.key(title)
+        val cur = items[key]?.takeIf { !it.deleted && it.status == "have" }
+        if (cur != null) update(key) { it.copy(qty = it.qty + 1) } else set(title, v, photo, "have")
     }
 
     /** Changes the details of an item (quantity, condition, price, notes, garage, photo). */

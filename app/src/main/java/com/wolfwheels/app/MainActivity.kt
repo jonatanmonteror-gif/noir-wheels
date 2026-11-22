@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
         com.wolfwheels.app.data.Account.init()
         com.wolfwheels.app.data.MyCollection.init(this)
         com.wolfwheels.app.data.Translator.init(this)
+        com.wolfwheels.app.data.News.schedule(this)
         enableEdgeToEdge()
         setContent { App() }
     }

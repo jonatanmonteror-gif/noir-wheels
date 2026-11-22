@@ -91,6 +91,16 @@ fun CollectionEditor(item: MyCollection.Item) {
         }
         if (item.qty > 1) Text("Tienes ${item.qty - 1} repetido${if (item.qty > 2) "s" else ""} para cambiar.", color = WW.amber, fontSize = 13.sp)
 
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("PARA CAMBIAR", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                Text("Sale en tu lista de cambios y en tu garaje público.", color = WW.text3, fontSize = 12.sp)
+            }
+            androidx.compose.material3.Switch(checked = item.trade, onCheckedChange = { on -> MyCollection.update(key) { it.copy(trade = on) } },
+                colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = WW.orange, checkedThumbColor = WW.text))
+        }
+
         Label("Conservación")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("blister" to "En blíster", "suelto" to "Suelto", "dañado" to "Dañado").forEach { (v, l) ->

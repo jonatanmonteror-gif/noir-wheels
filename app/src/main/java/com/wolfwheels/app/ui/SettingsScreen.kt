@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,17 @@ fun SettingsScreen() {
     val update = AppState.update.value
     var viewOpen by remember { mutableStateOf(false) }
     var backupMsg by remember { mutableStateOf<String?>(null) }
+    var notifyNew by remember { mutableStateOf(com.wolfwheels.app.data.Prefs.notifyNew) }
+    var notifyWish by remember { mutableStateOf(com.wolfwheels.app.data.Prefs.notifyWish) }
+    var pendingNotify by remember { mutableStateOf<String?>(null) }
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) {
+            if (pendingNotify == "new") { com.wolfwheels.app.data.Prefs.notifyNew = true; notifyNew = true }
+            if (pendingNotify == "wish") { com.wolfwheels.app.data.Prefs.notifyWish = true; notifyWish = true }
+            com.wolfwheels.app.data.News.schedule(ctx)
+        }
+        pendingNotify = null
+    }
     val restorePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) backupMsg = runCatching {
             val text = ctx.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
@@ -99,6 +111,21 @@ fun SettingsScreen() {
                             }
                         }
                     }
+                }
+            }
+
+            SectionTitle("Avisos")
+            Card {
+                Text("Notificaciones en el móvil, una vez al día como mucho.", color = WW.text3, fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                NotifyRow("Nuevos modelos", "Cuando la wiki añade modelos nuevos del año.", notifyNew) { on ->
+                    if (on && !com.wolfwheels.app.data.News.canNotify(ctx)) { pendingNotify = "new"; permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+                    else { com.wolfwheels.app.data.Prefs.notifyNew = on; notifyNew = on; com.wolfwheels.app.data.News.schedule(ctx) }
+                }
+                Spacer(Modifier.height(6.dp))
+                NotifyRow("Mi lista de deseos", "Nuevas versiones (y Treasure Hunts) de los modelos que buscas.", notifyWish) { on ->
+                    if (on && !com.wolfwheels.app.data.News.canNotify(ctx)) { pendingNotify = "wish"; permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+                    else { com.wolfwheels.app.data.Prefs.notifyWish = on; notifyWish = on; com.wolfwheels.app.data.News.schedule(ctx) }
                 }
             }
 
@@ -200,7 +227,19 @@ fun SettingsScreen() {
 @Composable
 private fun Card(content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface)
+        Modifier.fillMaxWidth().animateContentSize().clip(RoundedCornerShape(14.dp)).background(WW.surface)
             .border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(14.dp)
     ) { content() }
+}
+
+@Composable
+private fun NotifyRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(sub, color = WW.text3, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        androidx.compose.material3.Switch(checked = on, onCheckedChange = onChange,
+            colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = WW.orange, checkedThumbColor = WW.text))
+    }
 }
