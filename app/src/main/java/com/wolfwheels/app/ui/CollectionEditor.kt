@@ -162,7 +162,10 @@ fun CollectionEditor(item: MyCollection.Item) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("¿Seguro?", color = WW.text2, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 SecondaryButton("No") { confirmRemove = false }
-                PrimaryButton("Quitar") { MyCollection.update(key) { it.copy(deleted = true) } }
+                PrimaryButton("Quitar") {
+                    AppState.undo.value = "Quitado de Mi garaje" to item
+                    MyCollection.update(key) { it.copy(deleted = true) }
+                }
             }
         }
     }

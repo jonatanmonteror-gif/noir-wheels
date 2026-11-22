@@ -251,10 +251,20 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
                             val st = MyCollection.statusOf(v.key(title))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ToggleButton(if (st == "have") "✓ La tengo" else "La tengo", st == "have", Modifier.weight(1f)) {
-                                    if (st != "have") MyCollection.set(title, v, photoOf(v), "have")
+                                    val before = MyCollection.items[v.key(title)]?.takeIf { !it.deleted }
+                                    if (st == "have") {
+                                        // Tapped by mistake? Tap again to remove it, and "Deshacer" brings it back with all its details
+                                        MyCollection.set(title, v, photoOf(v), null)
+                                        AppState.undo.value = "Quitado de Mi garaje" to before
+                                    } else {
+                                        MyCollection.set(title, v, photoOf(v), "have")
+                                        AppState.undo.value = "Añadido a Mi garaje" to before
+                                    }
                                 }
                                 ToggleButton(if (st == "want") "★ La quiero" else "La quiero", st == "want", Modifier.weight(1f)) {
+                                    val before = MyCollection.items[v.key(title)]?.takeIf { !it.deleted }
                                     MyCollection.set(title, v, photoOf(v), if (st == "want") null else "want")
+                                    AppState.undo.value = (if (st == "want") "Quitado de tu lista de deseos" else "Añadido a tu lista de deseos") to before
                                 }
                             }
                             MyCollection.items[v.key(title)]?.takeIf { !it.deleted && it.status == "have" }?.let { item ->

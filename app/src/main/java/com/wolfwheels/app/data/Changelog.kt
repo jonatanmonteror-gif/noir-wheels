@@ -5,6 +5,10 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Deshacer", listOf(
+            "Si marcaste «La tengo» sin querer, vuelve a tocarlo para quitarlo de Mi garaje.",
+            "Tras añadir o quitar un coche aparece «Deshacer» unos segundos, y lo deja todo como estaba (con su cantidad, notas y foto).",
+        )),
         Entry("Garaje público y modo tienda", listOf(
             "Garaje público: una página web con tu garaje y tus coches para cambiar (Mi cuenta → Garaje público).",
             "Marca coches «Para cambiar» y comparte tu lista de cambios desde la pestaña Repes.",

@@ -38,6 +38,8 @@ object AppState {
     val viewer = mutableStateOf<Viewer?>(null)
     val update = mutableStateOf<Updater.Release?>(null)
     val resumes = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Last change that can be undone: (message, item as it was before). */
+    val undo = mutableStateOf<Pair<String, com.wolfwheels.app.data.MyCollection.Item?>?>(null)
     /** Tab Mi garaje opens with ("have", "want"…). */
     val garageTab = mutableStateOf("have")
 
@@ -87,6 +89,7 @@ fun App() {
                 AppState.viewer.value?.let { PhotoViewer(it) }
             }
             AchievementToast()
+            UndoBar()
             UpdateDialog()
             CrashDialog()
         }

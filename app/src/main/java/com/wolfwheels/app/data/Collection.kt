@@ -139,6 +139,12 @@ object MyCollection {
         return sb.toString()
     }
 
+    /** Puts an item back as it was (undo). */
+    fun restore(old: Item) {
+        items[old.key] = old.copy(t = System.currentTimeMillis())
+        persist(); scheduleSync()
+    }
+
     fun saveAndSync() { persist(); scheduleSync() }
 
     fun scheduleSync() {

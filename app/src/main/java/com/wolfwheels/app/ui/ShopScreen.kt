@@ -79,6 +79,7 @@ fun ShopScreen() {
                     }
                 }
                 PrimaryButton("¡Lo tengo!", Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    AppState.undo.value = "Pasado a Mi garaje" to w
                     MyCollection.update(w.key) { it.copy(status = "have", added = System.currentTimeMillis()) }
                 }
             }
