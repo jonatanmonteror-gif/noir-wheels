@@ -284,6 +284,27 @@ case 'img': {
     file_put_contents($cache, json_encode(['url' => $url, 't' => time()]));
     out(['url' => $url]);
 }
+case 'sample': {
+    // Correos de ejemplo al administrador. Solo funciona mientras config.php tenga SAMPLE_KEY.
+    if (!defined('SAMPLE_KEY') || SAMPLE_KEY === '' || !hash_equals(SAMPLE_KEY, (string)($_GET['k'] ?? ''))) fail(404, 'action');
+    if (!defined('ADMIN_EMAIL') || ADMIN_EMAIL === '') fail(400, 'admin');
+    $code = '482913';
+    $body = "Hola Jonatan, ¡bienvenido al garaje! Este es tu código para activar la cuenta:"
+        . '<div style="margin:22px 0;padding:18px;background:#0B0C0F;border-radius:14px;text-align:center;border:1px solid #2A2E37">'
+        . '<span style="font-size:40px;font-weight:800;font-style:italic;letter-spacing:10px;color:#FFB81C">' . $code . '</span></div>'
+        . 'Escríbelo en la app para empezar a guardar tu colección. El código caduca en 30 minutos.';
+    $a1 = wolfMail(ADMIN_EMAIL, "[EJEMPLO] Tu código de Wolf Wheels: $code", 'Activa tu cuenta', $body,
+        'Si no has creado una cuenta en Wolf Wheels, ignora este correo.');
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $total = count(array_filter($users, fn($u) => !empty($u['verified'])));
+    $b2 = '<table cellpadding="0" cellspacing="0" style="font-size:15px;line-height:24px;color:#C9CCD2">'
+        . '<tr><td style="color:#6B707A;padding-right:14px">Nombre</td><td style="color:#F4F4F5"><b>Usuario de ejemplo</b></td></tr>'
+        . '<tr><td style="color:#6B707A;padding-right:14px">Email</td><td style="color:#F4F4F5">ejemplo@correo.com</td></tr>'
+        . '<tr><td style="color:#6B707A;padding-right:14px">Fecha</td><td style="color:#F4F4F5">' . date('d/m/Y H:i') . '</td></tr></table>'
+        . '<div style="margin-top:18px;padding:12px 14px;background:#0B0C0F;border-radius:12px;color:#FFB81C;font-weight:700">Cuentas verificadas en total: ' . $total . '</div>';
+    $a2 = wolfMail(ADMIN_EMAIL, '[EJEMPLO] Wolf Wheels · Nuevo registro: Usuario de ejemplo', 'Nuevo registro', $b2, 'Aviso automático para el administrador.');
+    out(['code_mail' => $a1, 'admin_mail' => $a2]);
+}
 default:
     fail(404, 'action');
 }

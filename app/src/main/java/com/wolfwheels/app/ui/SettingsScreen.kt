@@ -69,7 +69,7 @@ fun SettingsScreen() {
             Card {
                 Text("Coches por fila", color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(4.dp))
-                Text("En el inicio, las listas y tu colección.", color = WW.text3, fontSize = 13.sp)
+                Text("En el inicio, las listas y Mi garaje.", color = WW.text3, fontSize = 13.sp)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (1..3).forEach { c ->
