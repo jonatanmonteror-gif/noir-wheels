@@ -1,4 +1,4 @@
-package com.noirwheels.app.ui
+package com.wolfwheels.app.ui
 
 import android.content.Intent
 import android.net.Uri
@@ -37,9 +37,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.noirwheels.app.data.Changelog
-import com.noirwheels.app.data.Updater
-import com.noirwheels.app.data.Wiki
+import com.wolfwheels.app.data.Changelog
+import com.wolfwheels.app.data.Updater
+import com.wolfwheels.app.data.Wiki
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -53,33 +53,33 @@ fun SettingsScreen() {
     var ready by remember { mutableStateOf<File?>(null) }
     val update = AppState.update.value
 
-    Column(Modifier.fillMaxSize().background(NW.bg).blockTouches()) {
+    Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         Row(Modifier.statusBarsPadding().fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { AppState.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = NW.text) }
-            Text("Ajustes", color = NW.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            IconButton(onClick = { AppState.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = WW.text) }
+            Text("AJUSTES", color = WW.text, fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
             Box(Modifier.fillMaxWidth().padding(vertical = 22.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Wordmark(big = true)
+                    Wordmark(markSize = 52.dp, textSize = 32)
                     Spacer(Modifier.height(10.dp))
-                    Text("Versión 1.0.${Updater.currentCode}", color = NW.text3, fontSize = 13.sp)
+                    Text("Versión 1.0.${Updater.currentCode}", color = WW.text3, fontSize = 13.sp)
                 }
             }
 
             SectionTitle("Actualizaciones")
             Card {
                 if (update != null) {
-                    Text("Hay una versión nueva: ${update.name}", color = NW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("Hay una versión nueva: ${update.name}", color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(12.dp))
                     when {
                         ready != null -> PrimaryButton("Instalar", Modifier.fillMaxWidth()) {
-                            if (!Updater.install(ctx, ready!!)) status = "Permite instalar apps desde Noir Wheels y vuelve a pulsar Instalar."
+                            if (!Updater.install(ctx, ready!!)) status = "Permite instalar apps desde Wolf Wheels y vuelve a pulsar Instalar."
                         }
                         progress >= 0f -> {
-                            LinearProgressIndicator(progress = { progress }, color = NW.text, trackColor = NW.surface2, modifier = Modifier.fillMaxWidth())
+                            LinearProgressIndicator(progress = { progress }, color = WW.orange, trackColor = WW.surface2, modifier = Modifier.fillMaxWidth())
                             Spacer(Modifier.height(6.dp))
-                            Text("Descargando… ${(progress * 100).toInt()} %", color = NW.text2, fontSize = 13.sp)
+                            Text("Descargando… ${(progress * 100).toInt()} %", color = WW.text2, fontSize = 13.sp)
                         }
                         else -> PrimaryButton("Descargar e instalar", Modifier.fillMaxWidth()) {
                             status = null; progress = 0f
@@ -87,7 +87,7 @@ fun SettingsScreen() {
                                 try {
                                     val f = Updater.download(ctx, update) { progress = it }
                                     ready = f
-                                    if (!Updater.install(ctx, f)) status = "Permite instalar apps desde Noir Wheels y vuelve a pulsar Instalar."
+                                    if (!Updater.install(ctx, f)) status = "Permite instalar apps desde Wolf Wheels y vuelve a pulsar Instalar."
                                 } catch (e: kotlinx.coroutines.CancellationException) { throw e
                                 } catch (e: Exception) { status = e.message ?: "No se pudo descargar."
                                 } finally { progress = -1f }
@@ -95,7 +95,7 @@ fun SettingsScreen() {
                         }
                     }
                 } else {
-                    Text("Tienes la última versión.", color = NW.text, fontSize = 15.sp)
+                    Text("Tienes la última versión.", color = WW.text, fontSize = 15.sp)
                     Spacer(Modifier.height(12.dp))
                     SecondaryButton(if (checking) "Buscando…" else "Buscar actualizaciones", Modifier.fillMaxWidth()) {
                         if (checking) return@SecondaryButton
@@ -111,26 +111,26 @@ fun SettingsScreen() {
                         }
                     }
                 }
-                status?.let { Spacer(Modifier.height(10.dp)); Text(it, color = NW.text2, fontSize = 13.sp) }
+                status?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.text2, fontSize = 13.sp) }
             }
 
             SectionTitle("Novedades")
             Card {
                 Changelog.entries.forEachIndexed { i, e ->
                     if (i > 0) Spacer(Modifier.height(12.dp))
-                    Text("Versión ${e.version}", color = NW.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text("VERSIÓN ${e.version}", color = WW.amber, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                     Spacer(Modifier.height(6.dp))
-                    e.items.forEach { Text("· $it", color = NW.text2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(vertical = 2.dp)) }
+                    e.items.forEach { Text("· $it", color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(vertical = 2.dp)) }
                 }
             }
 
             SectionTitle("Acerca de")
             Card {
-                Text("Noir Wheels es una galería personal y no oficial. No tiene relación con Mattel; Hot Wheels es una marca registrada de Mattel.",
-                    color = NW.text2, fontSize = 14.sp, lineHeight = 20.sp)
+                Text("Wolf Wheels es una galería personal y no oficial. No tiene relación con Mattel; Hot Wheels es una marca registrada de Mattel.",
+                    color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
                 Spacer(Modifier.height(10.dp))
                 Text("Los datos y las fotos vienen en directo de la Hot Wheels Wiki (Fandom), hecha por la comunidad. El texto tiene licencia CC BY-SA y las fotos pertenecen a sus autores.",
-                    color = NW.text2, fontSize = 14.sp, lineHeight = 20.sp)
+                    color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
                 Spacer(Modifier.height(12.dp))
                 SecondaryButton("Abrir la Hot Wheels Wiki", Modifier.fillMaxWidth()) {
                     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Wiki.SITE + "Hot_Wheels_Wiki"))) }
@@ -144,7 +144,7 @@ fun SettingsScreen() {
 @Composable
 private fun Card(content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(NW.surface)
-            .border(1.dp, NW.line, RoundedCornerShape(14.dp)).padding(14.dp)
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface)
+            .border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(14.dp)
     ) { content() }
 }

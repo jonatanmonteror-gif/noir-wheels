@@ -1,4 +1,4 @@
-package com.noirwheels.app.ui
+package com.wolfwheels.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,14 +55,15 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.noirwheels.app.data.Prefs
-import com.noirwheels.app.data.Wiki
+import com.wolfwheels.app.data.Prefs
+import com.wolfwheels.app.data.Wiki
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -144,33 +145,33 @@ fun HomeScreen() {
     }
     LaunchedEffect(nearEnd, cars.size) { if (nearEnd && cars.isNotEmpty() && error == null) load(reset = false) }
 
-    Column(Modifier.fillMaxSize().background(NW.bg)) {
+    Column(Modifier.fillMaxSize().background(WW.bg)) {
         // Header
         Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp)) {
-            Box(Modifier.fillMaxWidth().height(56.dp)) {
-                Box(Modifier.align(Alignment.Center)) { Wordmark() }
-                IconButton(onClick = { AppState.settings.value = true }, modifier = Modifier.align(Alignment.CenterEnd)) {
+            Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { Wordmark() }
+                IconButton(onClick = { AppState.settings.value = true }) {
                     Box {
-                        Icon(Icons.Filled.Settings, contentDescription = "Ajustes", tint = NW.text2)
-                        if (AppState.update.value != null) Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(NW.text).align(Alignment.TopEnd))
+                        Icon(Icons.Filled.Settings, contentDescription = "Ajustes", tint = WW.text2)
+                        if (AppState.update.value != null) Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(WW.orange).align(Alignment.TopEnd))
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
             // Search box
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(NW.surface)
-                    .border(1.dp, NW.line, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface)
+                    .border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Search, null, tint = NW.text3, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Search, null, tint = WW.orange, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("Busca un modelo: Bone Shaker, Skyline…", color = NW.text3, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (query.isEmpty()) Text("Busca un modelo: Bone Shaker, Skyline…", color = WW.text3, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     BasicTextField(
                         value = query, onValueChange = { query = it }, singleLine = true,
-                        textStyle = TextStyle(color = NW.text, fontSize = 15.sp, fontFamily = Inter),
-                        cursorBrush = SolidColor(NW.text),
+                        textStyle = TextStyle(color = WW.text, fontSize = 15.sp, fontFamily = Inter),
+                        cursorBrush = SolidColor(WW.orange),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = {
                             focus.clearFocus()
@@ -180,7 +181,7 @@ fun HomeScreen() {
                     )
                 }
                 if (query.isNotEmpty()) {
-                    Icon(Icons.Filled.Close, "Borrar", tint = NW.text2,
+                    Icon(Icons.Filled.Close, "Borrar", tint = WW.text2,
                         modifier = Modifier.size(20.dp).clip(RoundedCornerShape(50)).clickable { query = ""; focus.clearFocus() })
                 }
             }
@@ -208,24 +209,21 @@ fun HomeScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(title, color = NW.text, fontSize = 20.sp, fontFamily = InterDisplay, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (cars.isNotEmpty()) Text("${cars.size}${if (finished) "" else "+"}", color = NW.text3, fontSize = 13.sp)
-                }
+                Heading(title, Modifier.padding(top = 4.dp, bottom = 2.dp), size = 22,
+                    trailing = if (cars.isNotEmpty()) "${cars.size}${if (finished) "" else "+"}" else null)
             }
             itemsIndexed(cars, key = { _, c -> c.title }) { _, car -> CarCard(car) { AppState.open(car.title) } }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().padding(vertical = 18.dp), contentAlignment = Alignment.Center) {
                     when {
-                        loading -> CircularProgressIndicator(color = NW.text2, strokeWidth = 2.dp, modifier = Modifier.size(26.dp))
+                        loading -> CircularProgressIndicator(color = WW.orange, strokeWidth = 2.dp, modifier = Modifier.size(26.dp))
                         error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(error!!, color = NW.text2, fontSize = 14.sp)
+                            Text(error!!, color = WW.text2, fontSize = 14.sp)
                             Spacer(Modifier.height(10.dp))
                             SecondaryButton("Reintentar") { error = null; load(reset = cars.isEmpty()) }
                         }
-                        cars.isEmpty() -> Text("Sin resultados. Prueba con el nombre en inglés.", color = NW.text2, fontSize = 14.sp)
-                        finished -> Text("No hay más modelos", color = NW.text3, fontSize = 13.sp)
+                        cars.isEmpty() -> Text("Sin resultados. Prueba con el nombre en inglés.", color = WW.text2, fontSize = 14.sp)
+                        finished -> Text("No hay más modelos", color = WW.text3, fontSize = 13.sp)
                     }
                 }
             }
@@ -237,17 +235,19 @@ fun HomeScreen() {
 @Composable
 private fun CarCard(car: Wiki.Car, onClick: () -> Unit) {
     Column(
-        Modifier.clip(RoundedCornerShape(14.dp)).background(NW.surface)
-            .border(1.dp, NW.line, RoundedCornerShape(14.dp)).clickable(onClick = onClick)
+        Modifier.clip(RoundedCornerShape(16.dp)).background(WW.surface)
+            .border(1.dp, WW.line, RoundedCornerShape(16.dp)).clickable(onClick = onClick)
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(NW.surface2), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(WW.showroom).padding(6.dp), contentAlignment = Alignment.Center) {
             if (car.thumb != null) {
                 AsyncImage(model = car.thumb, contentDescription = car.title, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
             } else {
-                Text("Sin foto", color = NW.text3, fontSize = 12.sp)
+                Text("SIN FOTO", color = WW.text3, fontSize = 13.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
             }
         }
-        Text(car.title, color = NW.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2,
+        Box(Modifier.fillMaxWidth().height(3.dp).background(WW.accent))
+        Text(car.title.uppercase(), color = WW.text, fontSize = 16.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
+            fontStyle = FontStyle.Italic, maxLines = 2, lineHeight = 18.sp,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp))
     }
 }

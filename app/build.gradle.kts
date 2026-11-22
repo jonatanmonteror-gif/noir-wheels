@@ -7,11 +7,11 @@ plugins {
 val buildNumber = (System.getenv("VERSION_CODE") ?: "1").toInt()
 
 android {
-    namespace = "com.noirwheels.app"
+    namespace = "com.wolfwheels.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.noirwheels.app"
+        applicationId = "com.wolfwheels.app"
         minSdk = 23
         targetSdk = 35
         versionCode = buildNumber

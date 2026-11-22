@@ -1,11 +1,11 @@
-package com.noirwheels.app
+package com.wolfwheels.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.noirwheels.app.data.Prefs
-import com.noirwheels.app.ui.App
+import com.wolfwheels.app.data.Prefs
+import com.wolfwheels.app.ui.App
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

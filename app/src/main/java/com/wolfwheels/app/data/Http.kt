@@ -1,4 +1,4 @@
-package com.noirwheels.app.data
+package com.wolfwheels.app.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -8,7 +8,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object Http {
-    const val UA = "NoirWheels/1.0 (Android; personal gallery app)"
+    const val UA = "WolfWheels/1.0 (Android; personal gallery app)"
 
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)

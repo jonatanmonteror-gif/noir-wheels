@@ -1,11 +1,11 @@
-package com.noirwheels.app.data
+package com.wolfwheels.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
 
 object Prefs {
     private lateinit var sp: SharedPreferences
-    fun init(ctx: Context) { sp = ctx.getSharedPreferences("noirwheels", Context.MODE_PRIVATE) }
+    fun init(ctx: Context) { sp = ctx.getSharedPreferences("wolfwheels", Context.MODE_PRIVATE) }
 
     /** Last list shown: "search:<text>" or "cat:<index>". */
     var lastList: String

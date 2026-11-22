@@ -1,4 +1,4 @@
-package com.noirwheels.app.data
+package com.wolfwheels.app.data
 
 import android.content.Context
 import android.content.Intent
@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import com.noirwheels.app.BuildConfig
+import com.wolfwheels.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -29,12 +29,20 @@ object Updater {
     suspend fun latest(): Release? = withContext(Dispatchers.IO) {
         runCatching {
             val client = Http.client.newBuilder().followRedirects(false).followSslRedirects(false).build()
-            val req = Request.Builder().url("https://github.com/$REPO/releases/latest").head().header("User-Agent", Http.UA).build()
-            val location = client.newCall(req).execute().use { it.header("Location") } ?: return@runCatching null
-            val tag = location.substringAfterLast("/tag/", "").ifEmpty { return@runCatching null }
+            // Follows up to 4 redirects (also works if the repository is renamed) until it reaches …/releases/tag/<tag>.
+            var url = "https://github.com/$REPO/releases/latest"
+            var tag = ""
+            repeat(4) {
+                if (tag.isNotEmpty()) return@repeat
+                val req = Request.Builder().url(url).head().header("User-Agent", Http.UA).build()
+                val location = client.newCall(req).execute().use { it.header("Location") } ?: return@runCatching null
+                url = if (location.startsWith("http")) location else "https://github.com$location"
+                tag = url.substringAfterLast("/tag/", "")
+            }
+            if (tag.isEmpty()) return@runCatching null
             val code = tag.substringAfterLast('.').toIntOrNull() ?: return@runCatching null
-            val base = "https://github.com/$REPO/releases/download/$tag"
-            Release(code, "Noir Wheels 1.0.$code", "$base/NoirWheels.apk", "$base/NoirWheels.apk.sha256")
+            val base = url.substringBefore("/releases/tag/") + "/releases/download/$tag"
+            Release(code, "Wolf Wheels 1.0.$code", "$base/WolfWheels.apk", "$base/WolfWheels.apk.sha256")
         }.getOrNull()
     }
 
@@ -53,7 +61,7 @@ object Updater {
         val file = if (ext != null) {
             val dir = File(ext, "updates").apply { mkdirs() }
             dir.listFiles()?.forEach { it.delete() }
-            val f = File(dir, "NoirWheels-${rel.versionCode}.apk")
+            val f = File(dir, "WolfWheels-${rel.versionCode}.apk")
             val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
             val req = android.app.DownloadManager.Request(Uri.parse(rel.apkUrl))
                 .setTitle(rel.name)
@@ -112,7 +120,7 @@ object Updater {
     /** Descarga directa con reintentos y continuación (si el móvil no tiene almacenamiento para el gestor de descargas). */
     private suspend fun downloadDirect(ctx: Context, rel: Release, onProgress: (Float) -> Unit): File {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
-        val file = File(dir, "NoirWheels-${rel.versionCode}.apk")
+        val file = File(dir, "WolfWheels-${rel.versionCode}.apk")
         var attempt = 0
         while (true) {
             try {

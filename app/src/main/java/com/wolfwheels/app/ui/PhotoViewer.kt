@@ -1,4 +1,4 @@
-package com.noirwheels.app.ui
+package com.wolfwheels.app.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.noirwheels.app.data.Wiki
+import com.wolfwheels.app.data.Wiki
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -44,14 +44,14 @@ fun PhotoViewer(v: AppState.Viewer) {
     val pager = rememberPagerState(initialPage = v.start) { v.photos.size }
     Column(Modifier.fillMaxSize().background(Color.Black).blockTouches()) {
         Row(Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${pager.currentPage + 1} / ${v.photos.size}", color = NW.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp).weight(1f))
+            Text("${pager.currentPage + 1} / ${v.photos.size}", color = WW.text2, fontSize = 14.sp, modifier = Modifier.padding(start = 10.dp).weight(1f))
             IconButton(onClick = { AppState.viewer.value = null }) { Icon(Icons.Filled.Close, "Cerrar", tint = Color.White) }
         }
         HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth()) { page ->
             ZoomableImage(v.photos[page])
         }
         Text(
-            v.photos.getOrNull(pager.currentPage)?.name.orEmpty(), color = NW.text2, fontSize = 13.sp, textAlign = TextAlign.Center,
+            v.photos.getOrNull(pager.currentPage)?.name.orEmpty(), color = WW.text2, fontSize = 13.sp, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)
         )
     }

@@ -37,18 +37,18 @@ jobs:
 
       - name: Preparar APK y huella SHA-256
         run: |
-          cp app/build/outputs/apk/release/app-release.apk NoirWheels.apk
-          sha256sum NoirWheels.apk | cut -d' ' -f1 > NoirWheels.apk.sha256
-          echo "SHA-256: $(cat NoirWheels.apk.sha256)"
+          cp app/build/outputs/apk/release/app-release.apk WolfWheels.apk
+          sha256sum WolfWheels.apk | cut -d' ' -f1 > WolfWheels.apk.sha256
+          echo "SHA-256: $(cat WolfWheels.apk.sha256)"
 
       - name: Publicar versión
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Noir Wheels 1.0.${{ github.run_number }}
+          name: Wolf Wheels 1.0.${{ github.run_number }}
           body: |
-            Huella SHA-256 del APK publicada en NoirWheels.apk.sha256.
+            Huella SHA-256 del APK publicada en WolfWheels.apk.sha256.
           files: |
-            NoirWheels.apk
-            NoirWheels.apk.sha256
+            WolfWheels.apk
+            WolfWheels.apk.sha256
           make_latest: true

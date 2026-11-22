@@ -1,4 +1,4 @@
-package com.noirwheels.app.ui
+package com.wolfwheels.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -9,8 +9,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import com.noirwheels.app.data.Updater
-import com.noirwheels.app.data.Wiki
+import com.wolfwheels.app.data.Updater
+import com.wolfwheels.app.data.Wiki
 
 /** Global screen state. Simple stack: list → model page → (photo viewer). Settings on top of the list. */
 object AppState {
@@ -32,7 +32,7 @@ object AppState {
 
 @Composable
 fun App() {
-    NoirTheme {
+    WolfTheme {
         LaunchedEffect(Unit) {
             val r = Updater.latest()
             if (r != null && r.versionCode > Updater.currentCode) AppState.update.value = r
@@ -40,7 +40,7 @@ fun App() {
         val canGoBack = AppState.viewer.value != null || AppState.stack.isNotEmpty() || AppState.settings.value
         BackHandler(enabled = canGoBack) { AppState.back() }
 
-        Box(Modifier.fillMaxSize().background(NW.bg)) {
+        Box(Modifier.fillMaxSize().background(WW.bg)) {
             HomeScreen()
             if (AppState.settings.value) SettingsScreen()
             AppState.stack.lastOrNull()?.let { title ->
