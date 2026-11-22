@@ -1,6 +1,6 @@
-# Wolf Wheels: solo se puede usar api.php (config.php y data/ quedan cerradas)
+# Wolf Wheels: solo se pueden usar api.php y logo.png (config.php y data/ quedan cerradas)
 Options -Indexes
-<FilesMatch "^(?!api\.php$).*">
+<FilesMatch "^(?!(api\.php|logo\.png)$).*">
     Require all denied
 </FilesMatch>
 # Deja pasar la cabecera Authorization a PHP

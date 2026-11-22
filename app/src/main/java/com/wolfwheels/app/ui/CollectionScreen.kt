@@ -65,6 +65,7 @@ fun CollectionScreen() {
     var garage by remember { mutableStateOf<String?>(null) }
     var sort by remember { mutableStateOf(0) }                 // 0 recent · 1 year · 2 name
     var query by remember { mutableStateOf("") }
+    var customOpen by remember { mutableStateOf(false) }
 
     val all = MyCollection.items.values.filter { !it.deleted }
     val haveItems = all.filter { it.status == "have" }
@@ -88,16 +89,16 @@ fun CollectionScreen() {
 
     fun export() {
         val dir = File(ctx.cacheDir, "share").apply { mkdirs() }
-        val f = File(dir, "wolf-wheels-coleccion.csv")
+        val f = File(dir, "wolf-wheels-mi-garaje.csv")
         f.writeText("﻿" + MyCollection.csv())   // BOM so Excel shows accents
         val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
         val i = Intent(Intent.ACTION_SEND).setType("text/csv").putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_SUBJECT, "Mi colección Wolf Wheels").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        runCatching { ctx.startActivity(Intent.createChooser(i, "Exportar colección")) }
+            .putExtra(Intent.EXTRA_SUBJECT, "Mi garaje Wolf Wheels").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        runCatching { ctx.startActivity(Intent.createChooser(i, "Exportar mi garaje")) }
     }
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
-        TopBar("Mi colección") {
+        TopBar("Mi garaje") {
             IconButton(onClick = { export() }) { Icon(Icons.Filled.Share, "Exportar a Excel (CSV)", tint = WW.text2) }
         }
         LazyVerticalGrid(
@@ -112,7 +113,7 @@ fun CollectionScreen() {
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(WW.surface)
                             .border(1.5.dp, WW.accent, RoundedCornerShape(18.dp)).padding(16.dp)
                     ) {
-                        Text("TU GARAJE", color = WW.text3, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                        Text("MI GARAJE", color = WW.text3, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text("$cars", style = androidx.compose.ui.text.TextStyle(brush = WW.accent), fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
                                 fontStyle = FontStyle.Italic, fontSize = 56.sp, lineHeight = 58.sp)
@@ -145,32 +146,49 @@ fun CollectionScreen() {
                         SecondaryButton("Exportar", Modifier.weight(1f)) { export() }
                     }
                     Spacer(Modifier.height(14.dp))
-                    // Tabs
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(4.dp)) {
-                        listOf("have" to "Tengo", "want" to "Quiero", "dup" to "Repes", "series" to "Series").forEach { (k, l) ->
-                            val on = tab == k
-                            Box(
-                                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).then(if (on) Modifier.background(WW.accent) else Modifier)
-                                    .clickable { tab = k }.padding(vertical = 9.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(l.uppercase(), color = if (on) WW.onAccent else WW.text2, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
-                                    fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                    // View options, folded by default so the garage stays clean
+                    val tabName = mapOf("have" to "Tengo", "want" to "Quiero", "dup" to "Repes", "series" to "Series")[tab] ?: "Tengo"
+                    val summary = listOfNotNull(tabName, listOf("Recientes", "Por año", "A-Z")[sort].takeIf { tab != "series" },
+                        garage, query.takeIf { it.isNotBlank() }?.let { "“$it”" }).joinToString(" · ")
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp))) {
+                        Row(
+                            Modifier.fillMaxWidth().clickable { customOpen = !customOpen }.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("PERSONALIZAR VISTA", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                                Text(summary, color = WW.text3, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                            Text(if (customOpen) "▴" else "▾", color = WW.orange, fontSize = 20.sp)
                         }
-                    }
-                    if (tab != "series") {
-                        Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Input(query, "Buscar en mi colección", Modifier.weight(1f)) { query = it }
-                            Spacer(Modifier.padding(4.dp))
-                            SmallChip(listOf("Recientes", "Por año", "A-Z")[sort], true) { sort = (sort + 1) % 3 }
-                        }
-                        if (garages.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                item { SmallChip("Todos los garajes", garage == null) { garage = null } }
-                                items(garages.size) { i -> SmallChip(garages[i], garage == garages[i]) { garage = if (garage == garages[i]) null else garages[i] } }
+                        if (customOpen) Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(WW.surface2).padding(4.dp)) {
+                                listOf("have" to "Tengo", "want" to "Quiero", "dup" to "Repes", "series" to "Series").forEach { (k, l) ->
+                                    val on = tab == k
+                                    Box(
+                                        Modifier.weight(1f).clip(RoundedCornerShape(9.dp)).then(if (on) Modifier.background(WW.accent) else Modifier)
+                                            .clickable { tab = k }.padding(vertical = 9.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(l.uppercase(), color = if (on) WW.onAccent else WW.text2, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+                                            fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                                    }
+                                }
+                            }
+                            if (tab != "series") {
+                                Spacer(Modifier.height(10.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Input(query, "Buscar en mi garaje", Modifier.weight(1f)) { query = it }
+                                    Spacer(Modifier.padding(4.dp))
+                                    SmallChip(listOf("Recientes", "Por año", "A-Z")[sort], true) { sort = (sort + 1) % 3 }
+                                }
+                                if (garages.isNotEmpty()) {
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        item { SmallChip("Todos los garajes", garage == null) { garage = null } }
+                                        items(garages.size) { i -> SmallChip(garages[i], garage == garages[i]) { garage = if (garage == garages[i]) null else garages[i] } }
+                                    }
+                                }
                             }
                         }
                     }

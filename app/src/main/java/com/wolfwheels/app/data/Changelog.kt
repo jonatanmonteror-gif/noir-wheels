@@ -5,6 +5,11 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Mi garaje", listOf(
+            "«Mi colección» ahora se llama Mi garaje, con su botón en el inicio.",
+            "Las pestañas, la búsqueda, el orden y los garajes van dentro de «Personalizar vista», plegada para que todo quede más limpio.",
+            "Los correos de la cuenta llegan con la imagen de Wolf Wheels.",
+        )),
         Entry("Avisos y cuentas verificadas", listOf(
             "Aviso al abrir la app cuando hay una versión nueva, con «Actualizar» o «Luego».",
             "Al crear la cuenta te llega un código a tu email para verificarla.",

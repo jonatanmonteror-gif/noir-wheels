@@ -152,15 +152,16 @@ fun HomeScreen() {
         // Header
         Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp)) {
             Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { Wordmark() }
-                IconButton(onClick = { AppState.push(Route.Collection) }) {
-                    Box {
-                        Icon(Icons.Filled.Star, contentDescription = "Mi colección", tint = WW.amber)
-                        val n = MyCollection.items.values.count { !it.deleted && it.status == "have" }
-                        if (n > 0) Box(Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-6).dp).clip(RoundedCornerShape(50)).background(WW.orange).padding(horizontal = 4.dp)) {
-                            Text("$n", color = WW.onAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                Box(Modifier.weight(1f)) { Wordmark(markSize = 32.dp, textSize = 21) }
+                // My garage (my collection)
+                Row(
+                    Modifier.clip(Slant).background(WW.accent).clickable { AppState.push(Route.Collection) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("MI GARAJE", color = WW.onAccent, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                    val n = MyCollection.items.values.filter { !it.deleted && it.status == "have" }.sumOf { it.qty }
+                    if (n > 0) Text("  $n", color = WW.onAccent, fontFamily = Barlow, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
                 IconButton(onClick = { AppState.push(Route.Settings) }) {
                     Box {

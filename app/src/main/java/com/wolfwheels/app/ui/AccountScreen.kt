@@ -68,7 +68,7 @@ fun AccountScreen() {
                 Spacer(Modifier.height(16.dp))
                 val have = MyCollection.items.values.count { !it.deleted && it.status == "have" }
                 val want = MyCollection.items.values.count { !it.deleted && it.status == "want" }
-                SpecTile("Tu colección", "$have coches · $want en deseos", Modifier.fillMaxWidth())
+                SpecTile("Mi garaje", "$have coches · $want en deseos", Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 val last = MyCollection.lastSync.value
                 SpecTile("Última sincronización",
@@ -82,7 +82,7 @@ fun AccountScreen() {
                 Spacer(Modifier.height(10.dp))
                 SecondaryButton("Cerrar sesión", Modifier.fillMaxWidth()) { scope.launch { Account.logout() } }
                 Spacer(Modifier.height(10.dp))
-                Text("Al cerrar sesión tu colección sigue en este móvil y en tu cuenta.", color = WW.text3, fontSize = 12.sp)
+                Text("Al cerrar sesión tu garaje sigue en este móvil y en tu cuenta.", color = WW.text3, fontSize = 12.sp)
             } else if (codeFor != null) {
                 Heading("Verifica tu email", size = 22)
                 Spacer(Modifier.height(8.dp))

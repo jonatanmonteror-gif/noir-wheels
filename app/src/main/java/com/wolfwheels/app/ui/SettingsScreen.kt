@@ -86,7 +86,7 @@ fun SettingsScreen() {
                     Text(com.wolfwheels.app.data.Account.name.value, color = WW.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Text(com.wolfwheels.app.data.Account.email.value, color = WW.text2, fontSize = 14.sp)
                 } else {
-                    Text("Crea una cuenta para guardar tu colección y verla en todos tus aparatos.", color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
+                    Text("Crea una cuenta para guardar tu garaje y verlo en todos tus aparatos.", color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
                 }
                 Spacer(Modifier.height(12.dp))
                 SecondaryButton(if (com.wolfwheels.app.data.Account.loggedIn.value) "Mi cuenta" else "Entrar o crear cuenta", Modifier.fillMaxWidth()) { AppState.push(Route.Account) }

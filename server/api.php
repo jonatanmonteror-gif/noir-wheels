@@ -91,6 +91,34 @@ function tooMany(string $email, bool $failed = false): bool {
     });
 }
 
+/** Remitente de los correos: "Wolf Wheels <wolfwheels@dominio>" salvo que config.php diga otro. */
+function sender(): string {
+    $host = preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es');
+    return defined('MAIL_FROM') ? MAIL_FROM : "Wolf Wheels <wolfwheels@$host>";
+}
+
+/** Correo con la imagen de Wolf Wheels: logo, fondo oscuro y acento naranja. */
+function wolfMail(string $to, string $subject, string $title, string $body, string $foot = ''): bool {
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    $logo = "https://$host/wolf-wheels/logo.png";
+    $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0B0C0F">'
+        . '<table width="100%" cellpadding="0" cellspacing="0" style="background:#0B0C0F;padding:24px 12px"><tr><td align="center">'
+        . '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#15171C;border-radius:18px;overflow:hidden;border:1px solid #2A2E37">'
+        . '<tr><td style="background:#0B0C0F;padding:18px 22px"><img src="' . $logo . '" alt="Wolf Wheels" width="260" style="display:block;width:260px;max-width:70%"></td></tr>'
+        . '<tr><td style="height:4px;background:#FF5A1A;background-image:linear-gradient(90deg,#FF3D17,#FF5A1A,#FFB81C)"></td></tr>'
+        . '<tr><td style="padding:26px 24px;font-family:Arial,Helvetica,sans-serif;color:#F4F4F5">'
+        . '<div style="font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.5px;margin:0 0 14px">' . $title . '</div>'
+        . '<div style="font-size:15px;line-height:22px;color:#C9CCD2">' . $body . '</div>'
+        . '</td></tr>'
+        . '<tr><td style="padding:16px 24px 22px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#6B707A;border-top:1px solid #2A2E37">'
+        . ($foot !== '' ? $foot . '<br>' : '') . 'Wolf Wheels · tu garaje de Hot Wheels</td></tr>'
+        . '</table></td></tr></table></body></html>';
+    $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+    $from = sender();
+    $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\nReply-To: $from\r\n";
+    return @mail($to, $subjectEnc, $html, $headers);
+}
+
 /** Crea un código nuevo para ese email, lo guarda (cifrado) y lo manda por correo. */
 function sendCode(string $email, string $name): string {
     global $dir;
@@ -110,17 +138,13 @@ function sendCode(string $email, string $name): string {
         return [$users, 'ok'];
     });
     if ($ok !== 'ok') return $ok;
-    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
-    $from = defined('MAIL_FROM') ? MAIL_FROM : "Wolf Wheels <no-reply@$host>";
-    $subject = '=?UTF-8?B?' . base64_encode("Tu código de Wolf Wheels: $code") . '?=';
     $safe = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-    $html = "<div style=\"font-family:Arial,sans-serif;background:#0B0C0F;color:#F4F4F5;padding:28px;border-radius:14px;max-width:480px\">"
-        . "<div style=\"font-size:22px;font-weight:800;font-style:italic\">WOLF <span style=\"color:#FF7A1A\">WHEELS</span></div>"
-        . "<p style=\"color:#A3A7B0\">Hola $safe, este es tu código para activar la cuenta:</p>"
-        . "<div style=\"font-size:36px;font-weight:800;letter-spacing:8px;color:#FFB81C;margin:18px 0\">$code</div>"
-        . "<p style=\"color:#6B707A;font-size:13px\">Caduca en 30 minutos. Si no has creado una cuenta en Wolf Wheels, ignora este correo.</p></div>";
-    $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\n";
-    return @mail($email, $subject, $html, $headers) ? 'ok' : 'fail';
+    $body = "Hola $safe, ¡bienvenido al garaje! Este es tu código para activar la cuenta:"
+        . '<div style="margin:22px 0;padding:18px;background:#0B0C0F;border-radius:14px;text-align:center;border:1px solid #2A2E37">'
+        . '<span style="font-size:40px;font-weight:800;font-style:italic;letter-spacing:10px;color:#FFB81C">' . $code . '</span></div>'
+        . 'Escríbelo en la app para empezar a guardar tu colección. El código caduca en 30 minutos.';
+    return wolfMail($email, "Tu código de Wolf Wheels: $code", 'Activa tu cuenta', $body,
+        'Si no has creado una cuenta en Wolf Wheels, ignora este correo.') ? 'ok' : 'fail';
 }
 
 /** Aviso al administrador (ADMIN_EMAIL en config.php) de registros y verificaciones. */
@@ -129,15 +153,14 @@ function notifyAdmin(string $what, string $name, string $email): void {
     global $dir;
     $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
     $total = count(array_filter($users, fn($u) => !empty($u['verified'])));
-    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
-    $from = defined('MAIL_FROM') ? MAIL_FROM : "Wolf Wheels <no-reply@$host>";
-    $subject = '=?UTF-8?B?' . base64_encode("Wolf Wheels: $what") . '?=';
     $h = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     $when = date('d/m/Y H:i');
-    $html = "<div style=\"font-family:Arial,sans-serif\"><h2 style=\"margin:0 0 10px\">{$h($what)}</h2>"
-        . "<p><b>Nombre:</b> {$h($name)}<br><b>Email:</b> {$h($email)}<br><b>Fecha:</b> $when</p>"
-        . "<p style=\"color:#666\">Cuentas verificadas en total: $total</p></div>";
-    @mail(ADMIN_EMAIL, $subject, $html, "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\n");
+    $body = '<table cellpadding="0" cellspacing="0" style="font-size:15px;line-height:24px;color:#C9CCD2">'
+        . '<tr><td style="color:#6B707A;padding-right:14px">Nombre</td><td style="color:#F4F4F5"><b>' . $h($name) . '</b></td></tr>'
+        . '<tr><td style="color:#6B707A;padding-right:14px">Email</td><td style="color:#F4F4F5">' . $h($email) . '</td></tr>'
+        . '<tr><td style="color:#6B707A;padding-right:14px">Fecha</td><td style="color:#F4F4F5">' . $when . '</td></tr></table>'
+        . '<div style="margin-top:18px;padding:12px 14px;background:#0B0C0F;border-radius:12px;color:#FFB81C;font-weight:700">Cuentas verificadas en total: ' . $total . '</div>';
+    wolfMail(ADMIN_EMAIL, "Wolf Wheels · $what: $name", $h($what), $body, 'Aviso automático para el administrador.');
 }
 
 $a = $_GET['a'] ?? '';

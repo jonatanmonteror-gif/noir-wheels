@@ -5,6 +5,6 @@ const EBAY_CLIENT_ID = '';
 const EBAY_CLIENT_SECRET = '';
 
 // Remitente de los correos (código de verificación y avisos)
-const MAIL_FROM = 'Wolf Wheels <no-reply@jonatanmontero.es>';
+const MAIL_FROM = 'Wolf Wheels <wolfwheels@jonatanmontero.es>';
 // Te llega un correo con cada registro nuevo y cada cuenta verificada
 const ADMIN_EMAIL = '';

@@ -78,7 +78,7 @@ fun CollectionEditor(item: MyCollection.Item) {
     Column(
         Modifier.fillMaxWidth().clip(shape).background(WW.surface).border(1.dp, WW.orange.copy(alpha = 0.45f), shape).padding(14.dp)
     ) {
-        Heading("En mi colección", size = 17)
+        Heading("En mi garaje", size = 17)
         Spacer(Modifier.height(12.dp))
 
         // Quantity (repeated cars, for swapping)
@@ -146,7 +146,7 @@ fun CollectionEditor(item: MyCollection.Item) {
 
         Spacer(Modifier.height(14.dp))
         if (!confirmRemove) {
-            Text("QUITAR DE MI COLECCIÓN", color = WW.text3, fontFamily = Barlow, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
+            Text("QUITAR DE MI GARAJE", color = WW.text3, fontFamily = Barlow, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
                 fontSize = 14.sp, modifier = Modifier.clickable { confirmRemove = true }.padding(vertical = 4.dp))
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
