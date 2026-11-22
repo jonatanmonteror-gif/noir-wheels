@@ -199,9 +199,13 @@ fun SettingsScreen() {
 
             SectionTitle("Novedades")
             Card {
-                Changelog.entries.forEachIndexed { i, e ->
-                    if (i > 0) Spacer(Modifier.height(12.dp))
-                    Text(e.version.uppercase(), color = WW.amber, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                Changelog.entries.take(2).forEachIndexed { i, e ->
+                    if (i > 0) {
+                        Spacer(Modifier.height(14.dp))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(WW.line))
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    Text(if (i == 0) "ESTA VERSIÓN · ${e.version.uppercase()}" else "ANTERIOR · ${e.version.uppercase()}", color = if (i == 0) WW.amber else WW.text2, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                     Spacer(Modifier.height(6.dp))
                     e.items.forEach { Text("· $it", color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(vertical = 2.dp)) }
                 }
