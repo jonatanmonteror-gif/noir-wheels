@@ -167,13 +167,13 @@ fun CollectionScreen() {
                         items(badges.size) { i ->
                             val b = badges.sortedByDescending { it.done }[i]
                             Column(
-                                Modifier.width(118.dp).clip(RoundedCornerShape(14.dp)).background(if (b.done) WW.surface else WW.bg)
+                                Modifier.width(118.dp).height(112.dp).clip(RoundedCornerShape(14.dp)).background(if (b.done) WW.surface else WW.bg)
                                     .border(1.dp, if (b.done) WW.orange.copy(alpha = 0.6f) else WW.line, RoundedCornerShape(14.dp)).padding(10.dp)
                             ) {
                                 Text(b.icon, fontSize = 24.sp, modifier = Modifier.then(if (b.done) Modifier else Modifier.graphicsLayer { alpha = 0.3f }))
                                 Text(b.title.uppercase(), color = if (b.done) WW.text else WW.text3, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
                                     fontStyle = FontStyle.Italic, fontSize = 14.sp, maxLines = 1)
-                                Text(b.desc, color = WW.text3, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2)
+                                Text(b.desc, color = WW.text3, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
