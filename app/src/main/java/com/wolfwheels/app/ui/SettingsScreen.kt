@@ -2,6 +2,7 @@ package com.wolfwheels.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +54,7 @@ fun SettingsScreen() {
     var progress by remember { mutableFloatStateOf(-1f) }
     var ready by remember { mutableStateOf<File?>(null) }
     val update = AppState.update.value
+    var viewOpen by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         TopBar("Ajustes")
@@ -67,14 +69,26 @@ fun SettingsScreen() {
 
             SectionTitle("Vista")
             Card {
-                Text("Coches por fila", color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(4.dp))
-                Text("En el inicio, las listas y Mi garaje.", color = WW.text3, fontSize = 13.sp)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (1..3).forEach { c ->
-                        Pill(if (c == 1) "1 columna" else "$c columnas", com.wolfwheels.app.data.Prefs.columns.intValue == c) {
-                            com.wolfwheels.app.data.Prefs.setColumns(c)
+                Row(
+                    Modifier.fillMaxWidth().clickable { viewOpen = !viewOpen }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Coches por fila", color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        val n = com.wolfwheels.app.data.Prefs.columns.intValue
+                        Text(if (n == 1) "1 columna" else "$n columnas", color = WW.text3, fontSize = 13.sp)
+                    }
+                    Text(if (viewOpen) "▴" else "▾", color = WW.orange, fontSize = 20.sp)
+                }
+                if (viewOpen) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("En el inicio, las listas y Mi garaje.", color = WW.text3, fontSize = 13.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (1..3).forEach { c ->
+                            Pill(if (c == 1) "1 columna" else "$c columnas", com.wolfwheels.app.data.Prefs.columns.intValue == c) {
+                                com.wolfwheels.app.data.Prefs.setColumns(c)
+                            }
                         }
                     }
                 }

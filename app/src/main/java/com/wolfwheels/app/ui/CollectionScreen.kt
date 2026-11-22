@@ -65,7 +65,7 @@ fun CollectionScreen() {
     var garage by remember { mutableStateOf<String?>(null) }
     var sort by remember { mutableStateOf(0) }                 // 0 recent · 1 year · 2 name
     var query by remember { mutableStateOf("") }
-    var customOpen by remember { mutableStateOf(false) }
+    var customOpen by remember { mutableStateOf(true) }
 
     val all = MyCollection.items.values.filter { !it.deleted }
     val haveItems = all.filter { it.status == "have" }
