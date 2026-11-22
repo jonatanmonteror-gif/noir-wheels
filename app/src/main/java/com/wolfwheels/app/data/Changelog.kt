@@ -5,6 +5,11 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Todo en español", listOf(
+            "La historia, las curiosidades, los datos de la tarjeta y los datos de cada versión (color, decoración, base, interior, notas…) salen traducidos al español.",
+            "Cada texto se traduce una sola vez y se guarda: la próxima vez sale ya traducido al momento, incluso sin conexión.",
+            "La primera vez que abres la app se descarga el idioma (unos 30 MB).",
+        )),
         Entry("Colección y cuentas", listOf(
             "Toca un dato (serie de debut, diseñador, año, ruedas, serie de una versión…) y verás todos los coches de esa serie, de ese diseñador, etc.",
             "Mi colección: marca cada versión con «La tengo» o «La quiero». Con contador de coches, modelos y deseos.",

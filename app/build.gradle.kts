@@ -65,4 +65,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jsoup:jsoup:1.18.1")
+    // Translate the wiki texts to Spanish on the phone (the language is downloaded once)
+    implementation("com.google.mlkit:translate:17.0.3")
 }

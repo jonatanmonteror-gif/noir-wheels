@@ -115,7 +115,7 @@ fun CollectionScreen() {
                     Column(Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
                         Text(item.title.uppercase(), color = WW.text, fontSize = 16.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
                             fontStyle = FontStyle.Italic, maxLines = 2, lineHeight = 18.sp, overflow = TextOverflow.Ellipsis)
-                        Text(item.color.ifEmpty { item.series }, color = WW.text2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text((com.wolfwheels.app.data.Translator.cached(item.color) ?: item.color).ifEmpty { item.series }, color = WW.text2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (item.series.isNotEmpty()) Text(item.series, color = WW.text3, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }

@@ -15,6 +15,7 @@ class MainActivity : ComponentActivity() {
         Prefs.init(this)
         com.wolfwheels.app.data.Account.init()
         com.wolfwheels.app.data.MyCollection.init(this)
+        com.wolfwheels.app.data.Translator.init(this)
         enableEdgeToEdge()
         setContent { App() }
     }

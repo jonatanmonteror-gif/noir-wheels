@@ -26,6 +26,7 @@ object Wiki {
         val toy: String,
         val fields: List<Field>,   // all columns, labels already in Spanish
         val photo: String?,
+        val colorEs: String = color,   // colour shown (translated); [color] stays original for the collection key
     ) {
         /** Stable id for the collection. */
         fun key(title: String) = listOf(title, year, color, toy, series).joinToString("|")

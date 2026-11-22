@@ -58,6 +58,7 @@ import coil.compose.AsyncImage
 import com.wolfwheels.app.data.Wiki
 import com.wolfwheels.app.data.MyCollection
 import com.wolfwheels.app.data.Server
+import com.wolfwheels.app.data.Translator
 import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.launch
 
@@ -94,11 +95,17 @@ fun DetailScreen(title: String, selectKey: String? = null) {
         error = false
         scope.launch {
             try {
-                val d = Wiki.detail(title)
+                val raw = Wiki.detail(title)
+                // Spanish first: the texts are few and quick; the versions' data follow in the background
+                Translator.awaitReady(4000)
+                val d = Translator.textsOf(raw)
                 detail = d
                 selected = d.versions.firstOrNull { selectKey != null && it.key(title) == selectKey }
                     ?: d.versions.lastOrNull { it.photo != null } ?: d.versions.lastOrNull()
-            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { error = true }
+                val withVersions = Translator.versionsOf(d)
+                detail = withVersions
+                selected = selected?.let { s -> withVersions.versions.firstOrNull { it.key(title) == s.key(title) } } ?: selected
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { if (detail == null) error = true }
         }
         if (photos.isEmpty()) loadPhotos()
     }
@@ -111,7 +118,7 @@ fun DetailScreen(title: String, selectKey: String? = null) {
     val groups = d?.versions?.map { it.group }?.distinct().orEmpty()
     val shown = d?.versions.orEmpty().filter { group == null || it.group == group }.let { if (newestFirst) it.asReversed() else it }
     val versionPhotos = shown.mapNotNull { v ->
-        photoOf(v)?.let { p -> Wiki.Photo(p, p, listOf(v.year, v.series, v.color).filter { s -> s.isNotEmpty() }.joinToString(" · ")) }
+        photoOf(v)?.let { p -> Wiki.Photo(p, p, listOf(v.year, v.series, v.colorEs).filter { s -> s.isNotEmpty() }.joinToString(" · ")) }
     }
     val years = d?.versions.orEmpty().mapNotNull { it.year.take(4).toIntOrNull() }
 
@@ -391,7 +398,7 @@ private fun VersionCard(v: Wiki.Version, photo: String?, status: String?, select
         Column(Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
             Text(v.year.ifEmpty { "—" }, color = if (selected) WW.amber else WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
                 fontStyle = FontStyle.Italic, fontSize = 17.sp)
-            Text(v.color.ifEmpty { v.series }, color = WW.text2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(v.colorEs.ifEmpty { v.series }, color = WW.text2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (v.series.isNotEmpty()) Text(v.series, color = WW.text3, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
