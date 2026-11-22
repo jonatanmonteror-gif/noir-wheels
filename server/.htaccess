@@ -1,0 +1,9 @@
+# Wolf Wheels: solo se puede usar api.php (config.php y data/ quedan cerradas)
+Options -Indexes
+<FilesMatch "^(?!api\.php$).*">
+    Require all denied
+</FilesMatch>
+# Deja pasar la cabecera Authorization a PHP
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

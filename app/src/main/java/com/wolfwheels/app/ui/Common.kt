@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -121,15 +123,39 @@ fun SecondaryButton(text: String, modifier: Modifier = Modifier, onClick: () -> 
     }
 }
 
-/** Spec tile: small label above a bold value (like a car spec sheet). */
+/** Spec tile: small label above a bold value (like a car spec sheet). With [onClick] the value is a link (shows "›"). */
 @Composable
-fun SpecTile(label: String, value: String, modifier: Modifier = Modifier) {
+fun SpecTile(label: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    val shape = RoundedCornerShape(12.dp)
     Column(
-        modifier.clip(RoundedCornerShape(12.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(12.dp))
+        modifier.clip(shape).background(WW.surface)
+            .border(1.dp, if (onClick != null) WW.orange.copy(alpha = 0.45f) else WW.line, shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Text(label.uppercase(), color = WW.text3, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(3.dp))
-        Text(value, color = WW.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(value, color = if (onClick != null) WW.amber else WW.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp, modifier = Modifier.weight(1f, fill = false))
+            if (onClick != null) Text("  ›", color = WW.orange, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/** Screen top bar: back arrow + racing title. */
+@Composable
+fun TopBar(title: String, trailing: (@Composable () -> Unit)? = null) {
+    Row(
+        Modifier.statusBarsPadding().fillMaxWidth().height(56.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        androidx.compose.material3.IconButton(onClick = { AppState.back() }) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = WW.text)
+        }
+        Text(title.uppercase(), color = WW.text, fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
+            fontStyle = FontStyle.Italic, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(end = 8.dp))
+        trailing?.invoke()
     }
 }

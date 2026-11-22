@@ -56,10 +56,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.wolfwheels.app.data.Wiki
+import com.wolfwheels.app.data.MyCollection
+import com.wolfwheels.app.data.Server
+import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.launch
 
 @Composable
-fun DetailScreen(title: String) {
+fun DetailScreen(title: String, selectKey: String? = null) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf<Wiki.Detail?>(null) }
@@ -93,7 +96,8 @@ fun DetailScreen(title: String) {
             try {
                 val d = Wiki.detail(title)
                 detail = d
-                selected = d.versions.lastOrNull { it.photo != null } ?: d.versions.lastOrNull()
+                selected = d.versions.firstOrNull { selectKey != null && it.key(title) == selectKey }
+                    ?: d.versions.lastOrNull { it.photo != null } ?: d.versions.lastOrNull()
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { error = true }
         }
         if (photos.isEmpty()) loadPhotos()
@@ -103,17 +107,17 @@ fun DetailScreen(title: String) {
     val d = detail
     val groups = d?.versions?.map { it.group }?.distinct().orEmpty()
     val shown = d?.versions.orEmpty().filter { group == null || it.group == group }.let { if (newestFirst) it.asReversed() else it }
-    val versionPhotos = shown.filter { it.photo != null }.map {
-        Wiki.Photo(it.photo!!, it.photo!!, listOf(it.year, it.series, it.color).filter { s -> s.isNotEmpty() }.joinToString(" · "))
+    val versionPhotos = shown.mapNotNull { v ->
+        photoOf(v)?.let { p -> Wiki.Photo(p, p, listOf(v.year, v.series, v.color).filter { s -> s.isNotEmpty() }.joinToString(" · ")) }
     }
     val years = d?.versions.orEmpty().mapNotNull { it.year.take(4).toIntOrNull() }
 
+    // Photos for versions the wiki marks as "Image not available": first another wiki photo, then eBay (via the server)
+    val backup = remember { mutableStateMapOf<String, String>() }
+    fun photoOf(v: Wiki.Version): String? = v.photo ?: backup[v.key(title)] ?: wikiMatch(v, photos)
+
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
-        Row(Modifier.statusBarsPadding().fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { AppState.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = WW.text) }
-            Text(title.uppercase(), color = WW.text, fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
-                fontStyle = FontStyle.Italic, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
-        }
+        TopBar(title)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(104.dp),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -124,11 +128,14 @@ fun DetailScreen(title: String) {
             // ---------- Main photo (the selected version's) ----------
             item(span = { GridItemSpan(maxLineSpan) }) {
                 val sel = selected
-                val heroUrl = Wiki.big(sel?.photo, 1000) ?: d?.hero
+                if (sel != null && photoOf(sel) == null) LaunchedEffect(sel) {
+                    Server.backupImage(ebayQuery(title, sel))?.let { backup[sel.key(title)] = it }
+                }
+                val heroUrl = sel?.let { photoOf(it) }?.let { Wiki.big(it, 1000) } ?: d?.hero
                 Box(
                     Modifier.fillMaxWidth().aspectRatio(16f / 10f).clip(RoundedCornerShape(18.dp)).background(WW.showroom)
                         .clickable(enabled = versionPhotos.isNotEmpty() || photos.isNotEmpty()) {
-                            val i = versionPhotos.indexOfFirst { it.thumb == sel?.photo }
+                            val i = versionPhotos.indexOfFirst { it.thumb == sel?.let { v -> photoOf(v) } }
                             AppState.viewer.value = if (i >= 0) AppState.Viewer(versionPhotos, i) else AppState.Viewer(photos.toList(), 0)
                         },
                     contentAlignment = Alignment.Center
@@ -168,6 +175,11 @@ fun DetailScreen(title: String) {
                     if (d != null && d.facts.isNotEmpty()) {
                         SectionTitle("Ficha del modelo")
                         TileGrid(d.facts)
+                        val have = MyCollection.countFor(title)
+                        if (have > 0) {
+                            Spacer(Modifier.height(10.dp))
+                            Text("Tienes $have ${if (have == 1) "versión" else "versiones"} de este modelo", color = WW.amber, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -187,7 +199,11 @@ fun DetailScreen(title: String) {
                         Spacer(Modifier.height(12.dp))
                         LaunchedEffect(group, newestFirst) { versionsRow.scrollToItem(0) }
                         LazyRow(state = versionsRow, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            itemsIndexed(shown) { _, v -> VersionCard(v, v == selected) { selected = v } }
+                            itemsIndexed(shown) { _, v ->
+                                val k = v.key(title)
+                                if (photoOf(v) == null) LaunchedEffect(k) { Server.backupImage(ebayQuery(title, v))?.let { backup[k] = it } }
+                                VersionCard(v, photoOf(v), MyCollection.statusOf(k), v == selected) { selected = v }
+                            }
                         }
                     }
                 }
@@ -195,11 +211,25 @@ fun DetailScreen(title: String) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(top = 6.dp)) {
                             SectionTitle(listOf(v.year, v.series).filter { it.isNotEmpty() }.joinToString(" · ").ifEmpty { "Versión" })
-                            val main = v.fields.filter { it.first != "Notas" && it.first != "Año" && it.first != "Serie" }
+                            val st = MyCollection.statusOf(v.key(title))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ToggleButton(if (st == "have") "✓ La tengo" else "La tengo", st == "have", Modifier.weight(1f)) {
+                                    MyCollection.set(title, v, photoOf(v), if (st == "have") null else "have")
+                                }
+                                ToggleButton(if (st == "want") "★ La quiero" else "La quiero", st == "want", Modifier.weight(1f)) {
+                                    MyCollection.set(title, v, photoOf(v), if (st == "want") null else "want")
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            val main = v.fields.filter { it.label != "Notas" && it.label != "Año" }
                             TileGrid(main)
-                            v.fields.firstOrNull { it.first == "Notas" }?.let { (_, n) ->
+                            v.fields.firstOrNull { it.label == "Notas" }?.let { n ->
                                 Spacer(Modifier.height(8.dp))
-                                SpecTile("Notas", n, Modifier.fillMaxWidth())
+                                SpecTile("Notas", n.value, Modifier.fillMaxWidth())
+                            }
+                            if (v.photo == null && photoOf(v) != null) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("Foto aproximada: la wiki no tiene foto de esta versión.", color = WW.text3, fontSize = 12.sp)
                             }
                             if (groups.size > 1) {
                                 Spacer(Modifier.height(8.dp))
@@ -293,29 +323,59 @@ private fun Stat(value: String, label: String, modifier: Modifier) {
     }
 }
 
-/** Two tiles per row; long values take the whole row. */
+/** Two tiles per row; long values take the whole row. Values with a wiki link open the list of cars. */
 @Composable
-private fun TileGrid(items: List<Pair<String, String>>) {
-    val rows = mutableListOf<List<Pair<String, String>>>()
-    var pending: Pair<String, String>? = null
-    for (it in items) {
-        if (it.second.length > 28) { pending?.let { p -> rows.add(listOf(p)); pending = null }; rows.add(listOf(it)) }
-        else if (pending == null) pending = it
-        else { rows.add(listOf(pending!!, it)); pending = null }
+private fun TileGrid(items: List<Wiki.Field>) {
+    val rows = mutableListOf<List<Wiki.Field>>()
+    var pending: Wiki.Field? = null
+    for (f in items) {
+        if (f.value.length > 28) { pending?.let { p -> rows.add(listOf(p)); pending = null }; rows.add(listOf(f)) }
+        else if (pending == null) pending = f
+        else { rows.add(listOf(pending!!, f)); pending = null }
     }
     pending?.let { rows.add(listOf(it)) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         rows.forEach { r ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                r.forEach { (k, v) -> SpecTile(k, v, Modifier.weight(1f)) }
-                if (r.size == 1 && r[0].second.length <= 28) Spacer(Modifier.weight(1f))
+                r.forEach { f ->
+                    val click: (() -> Unit)? = f.link?.let { link -> { AppState.push(Route.Listing(f.value, link)) } }
+                    SpecTile(f.label, f.value, Modifier.weight(1f), click)
+                }
+                if (r.size == 1 && r[0].value.length <= 28) Spacer(Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun VersionCard(v: Wiki.Version, selected: Boolean, onClick: () -> Unit) {
+private fun ToggleButton(text: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier.clip(shape).then(if (on) Modifier.background(WW.accent) else Modifier.background(WW.surface2).border(1.dp, WW.line, shape))
+            .clickable(onClick = onClick).padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text.uppercase(), color = if (on) WW.onAccent else WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+            fontStyle = FontStyle.Italic, fontSize = 16.sp)
+    }
+}
+
+/** Another wiki photo that clearly belongs to this version (toy number, or year + colour in the file name). */
+private fun wikiMatch(v: Wiki.Version, photos: List<Wiki.Photo>): String? {
+    if (photos.isEmpty()) return null
+    val toy = v.toy.trim()
+    if (toy.length >= 4) photos.firstOrNull { it.name.contains(toy, ignoreCase = true) }?.let { return it.thumb }
+    val year = v.year.take(4)
+    val color = v.color.lowercase().split(' ', '/', '-').lastOrNull { it.length >= 3 } ?: return null
+    if (year.length != 4) return null
+    return photos.firstOrNull { val n = it.name.lowercase(); n.contains(year) && n.contains(color) }?.thumb
+}
+
+private fun ebayQuery(title: String, v: Wiki.Version) =
+    listOf("Hot Wheels", title, v.year.take(4), v.color, v.series.take(30)).filter { it.isNotBlank() }.joinToString(" ")
+
+@Composable
+private fun VersionCard(v: Wiki.Version, photo: String?, status: String?, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
     Column(
         Modifier.width(128.dp).clip(shape).background(WW.surface)
@@ -323,8 +383,11 @@ private fun VersionCard(v: Wiki.Version, selected: Boolean, onClick: () -> Unit)
             .clickable(onClick = onClick)
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(WW.showroom).padding(4.dp), contentAlignment = Alignment.Center) {
-            if (v.photo != null) AsyncImage(Wiki.big(v.photo, 400), v.color, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+            if (photo != null) AsyncImage(Wiki.big(photo, 400), v.color, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
             else Text("SIN FOTO", color = WW.text3, fontSize = 11.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+            if (status != null) Box(Modifier.align(Alignment.TopEnd).clip(Slant).background(WW.accent).padding(horizontal = 8.dp, vertical = 1.dp)) {
+                Text(if (status == "have") "✓ TENGO" else "★ QUIERO", color = WW.onAccent, fontSize = 11.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic)
+            }
         }
         Column(Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
             Text(v.year.ifEmpty { "—" }, color = if (selected) WW.amber else WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,

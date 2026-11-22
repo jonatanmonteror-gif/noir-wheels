@@ -14,25 +14,35 @@ object Wiki {
 
     data class Car(val title: String, val thumb: String?)
     data class Page(val items: List<Car>, val cont: Map<String, String>?)
+    /** A piece of data. [link] = wiki page it points to (tap to see the cars of that series, designer…). */
+    data class Field(val label: String, val value: String, val link: String? = null)
+
     /** One released version of a casting (one row of the wiki's versions tables). */
     data class Version(
         val group: String,
         val year: String,
         val series: String,
         val color: String,
-        val fields: List<Pair<String, String>>,   // all columns, labels already in Spanish
+        val toy: String,
+        val fields: List<Field>,   // all columns, labels already in Spanish
         val photo: String?,
-    )
+    ) {
+        /** Stable id for the collection. */
+        fun key(title: String) = listOf(title, year, color, toy, series).joinToString("|")
+    }
     data class Detail(
         val title: String,
         val hero: String?,
-        val facts: List<Pair<String, String>>,
+        val facts: List<Field>,
         val intro: String,
         val description: String,
         val versions: List<Version>,
-        val cardFacts: List<Pair<String, String>>,
+        val cardFacts: List<Field>,
         val notes: List<String>,
     )
+
+    /** A car in a list page (series, designer, wheel type…). */
+    data class ListCar(val title: String, val thumb: String?, val sub: String)
     data class Photo(val thumb: String, val full: String, val name: String)
     data class Photos(val items: List<Photo>, val cont: Map<String, String>?)
 
@@ -93,8 +103,9 @@ object Wiki {
 
         val facts = doc.select(".pi-data").mapNotNull { e ->
             val k = e.selectFirst(".pi-data-label")?.text()?.trim().orEmpty()
-            val v = clean(e.selectFirst(".pi-data-value")?.text())
-            if (k.isNotEmpty() && v.isNotEmpty()) factLabel(k) to v else null
+            val valueEl = e.selectFirst(".pi-data-value")
+            val v = clean(valueEl?.text())
+            if (k.isNotEmpty() && v.isNotEmpty()) Field(factLabel(k), v, valueEl?.let { linkIn(it) }) else null
         }
 
         // Description: paragraphs before the first table / until the next big section
@@ -111,40 +122,42 @@ object Wiki {
         val intro = paras.firstOrNull().orEmpty()
 
         val versions = mutableListOf<Version>()
-        val cardFacts = mutableListOf<Pair<String, String>>()
+        val cardFacts = mutableListOf<Field>()
         for (t in doc.select("table.wikitable")) {
             val grid = tableGrid(t)
             if (grid.size < 2) continue
-            val head = grid[0].map { it.first.trim() }
+            val head = grid[0].map { it.text.trim() }
             val lower = head.map { it.lowercase() }
             if ("year" in lower && lower.any { it.startsWith("color") }) {
                 val group = sectionOf(t)
                 for (row in grid.drop(1)) {
                     if (row.size < head.size / 2) continue
-                    val fields = mutableListOf<Pair<String, String>>()
+                    val fields = mutableListOf<Field>()
                     var photo: String? = null
-                    var year = ""; var series = ""; var color = ""
+                    var year = ""; var series = ""; var color = ""; var toy = ""
                     head.forEachIndexed { i, h ->
-                        val (txt, img) = row.getOrNull(i) ?: return@forEachIndexed
+                        val cell = row.getOrNull(i) ?: return@forEachIndexed
                         val key = h.lowercase()
-                        if (key.startsWith("photo") || key.startsWith("image")) { photo = img ?: photo; return@forEachIndexed }
-                        val v = clean(txt)
+                        if (key.startsWith("photo") || key.startsWith("image")) { photo = cell.img ?: photo; return@forEachIndexed }
+                        val v = clean(cell.text)
                         if (v.isEmpty() || v == "-" || v == "?") return@forEachIndexed
                         when {
                             key == "year" -> year = v
                             key.startsWith("series") -> series = v
                             key == "color" -> color = v
+                            key.startsWith("toy") -> toy = v
                         }
-                        fields += versionLabel(h) to v
+                        fields += Field(versionLabel(h), v, cell.link)
                     }
-                    if (photo == null) photo = row.firstNotNullOfOrNull { it.second }
-                    if (fields.isNotEmpty()) versions += Version(group, year, series, color, fields, photo)
+                    if (photo == null) photo = row.firstNotNullOfOrNull { it.img }
+                    if (fields.isNotEmpty()) versions += Version(group, year, series, color, toy, fields, photo)
                 }
             } else if (lower.firstOrNull()?.startsWith("year of card") == true) {
                 for (row in grid.drop(1)) head.forEachIndexed { i, h ->
                     if (i == 0) return@forEachIndexed
-                    val v = clean(row.getOrNull(i)?.first)
-                    if (v.isNotEmpty()) cardFacts += cardLabel(h) to v
+                    val c = row.getOrNull(i)
+                    val v = clean(c?.text)
+                    if (v.isNotEmpty()) cardFacts += Field(cardLabel(h), v, c?.link)
                 }
             }
         }
@@ -164,13 +177,45 @@ object Wiki {
     private fun clean(s: String?): String = (s ?: "").replace(Regex("\\[\\d+]"), "")
         .replace(Regex("\\s*·\\s*(·\\s*)+"), " · ").replace(Regex("\\s+"), " ").trim().trim('·').trim()
 
-    /** Table to a grid of (text, image) honouring rowspan/colspan, so columns line up. */
-    private fun tableGrid(t: org.jsoup.nodes.Element): List<List<Pair<String, String?>>> {
+    data class Cell(val text: String, val img: String?, val link: String?)
+
+    private val placeholder = Regex("image[_ ]not[_ ]available|no[_ ]image|placeholder", RegexOption.IGNORE_CASE)
+
+    private fun imgOf(td: org.jsoup.nodes.Element): String? {
+        for (im in td.select("img")) {
+            val src = im.attr("data-src").ifEmpty { im.attr("src") }
+            if (!src.startsWith("http")) continue
+            val keyName = im.attr("data-image-key") + " " + im.attr("alt") + " " + src
+            if (placeholder.containsMatchIn(keyName)) continue
+            return src
+        }
+        return null
+    }
+
+    /** First link in the element to another wiki article (not files, years-only navboxes are kept). */
+    private fun linkIn(e: org.jsoup.nodes.Element): String? {
+        for (a in e.select("a[href]")) {
+            val t = hrefToTitle(a.attr("href")) ?: continue
+            return t
+        }
+        return null
+    }
+
+    private fun hrefToTitle(href: String): String? {
+        if (!href.startsWith("/wiki/")) return null
+        val raw = href.removePrefix("/wiki/").substringBefore('#').substringBefore('?')
+        val t = runCatching { java.net.URLDecoder.decode(raw, "UTF-8") }.getOrDefault(raw).replace('_', ' ').trim()
+        if (t.isEmpty() || t.contains(':') && !t.startsWith("Category:")) return null
+        return t
+    }
+
+    /** Table to a grid of cells honouring rowspan/colspan, so columns line up. */
+    private fun tableGrid(t: org.jsoup.nodes.Element): List<List<Cell>> {
         val rows = t.select("tr").filter { it.closest("table") == t }
-        val out = mutableListOf<MutableList<Pair<String, String?>?>>()
-        val pending = mutableMapOf<Int, Pair<Pair<String, String?>, Int>>() // col -> (cell, rows left)
+        val out = mutableListOf<MutableList<Cell>>()
+        val pending = mutableMapOf<Int, Pair<Cell, Int>>() // col -> (cell, rows left)
         for (tr in rows) {
-            val line = mutableListOf<Pair<String, String?>?>()
+            val line = mutableListOf<Cell>()
             var col = 0
             fun fillPending() {
                 while (pending.containsKey(col)) {
@@ -182,10 +227,7 @@ object Wiki {
             }
             for (td in tr.children().filter { it.tagName() == "td" || it.tagName() == "th" }) {
                 fillPending()
-                val img = td.selectFirst("img")?.let { im ->
-                    im.attr("data-src").ifEmpty { im.attr("src") }.takeIf { it.startsWith("http") }
-                }
-                val cell = td.text() to img
+                val cell = Cell(td.text(), imgOf(td), linkIn(td))
                 val cs = td.attr("colspan").toIntOrNull()?.coerceIn(1, 20) ?: 1
                 val rs = td.attr("rowspan").toIntOrNull()?.coerceIn(1, 200) ?: 1
                 repeat(cs) {
@@ -197,8 +239,82 @@ object Wiki {
             fillPending()
             out += line
         }
-        return out.map { r -> r.map { it ?: ("" to null) } }
+        return out
     }
+
+    private val yearOnly = Regex("^\\d{4}$")
+
+    /**
+     * Cars listed on another wiki page (a series, a designer, a wheel type, a year…).
+     * Reads every table row that links to a car page; a bare year goes to its "Category:<year> Hot Wheels".
+     */
+    suspend fun listFrom(target: String): List<ListCar> {
+        val page = if (yearOnly.matches(target)) "Category:$target Hot Wheels" else target
+        if (page.startsWith("Category:")) {
+            val out = mutableListOf<ListCar>()
+            var cont: Map<String, String>? = null
+            do {
+                val p = category(page, cont)
+                out += p.items.map { ListCar(it.title, it.thumb, "") }
+                cont = p.cont
+            } while (cont != null && out.size < 600)
+            return out
+        }
+        val parsed = call(mapOf("action" to "parse", "page" to page, "prop" to "text", "redirects" to "1"))
+        val doc = Jsoup.parse(parsed.optJSONObject("parse")?.optString("text").orEmpty())
+        doc.select("br").forEach { it.replaceWith(org.jsoup.nodes.TextNode(" · ")) }
+        val seen = HashSet<String>()
+        val out = mutableListOf<ListCar>()
+        for (t in doc.select("table.wikitable, table.sortable")) {
+            val grid = tableGrid(t)
+            if (grid.size < 2) continue
+            // Some list tables have no header row: then the first row is already a car
+            val hasHeader = grid[0].none { it.img != null }
+            val head = if (hasHeader) grid[0].map { it.text.trim().lowercase() } else emptyList()
+            val nameCol = head.indexOfFirst { it.contains("name") || it.contains("casting") || it.contains("model") }
+            for (row in if (hasHeader) grid.drop(1) else grid) {
+                val title = (if (nameCol >= 0) row.getOrNull(nameCol)?.link else null)
+                    ?: row.firstNotNullOfOrNull { c -> c.link?.takeIf { okCar(it) } }
+                    ?: continue
+                if (!okCar(title) || title == page || !seen.add(title)) continue
+                val sub = row.mapNotNull { c ->
+                    val v = clean(c.text)
+                    v.takeIf { it.isNotEmpty() && it.length <= 22 && it != title && c.link != title && it.any(Char::isDigit) }
+                }.distinct().take(2).joinToString(" · ")
+                out += ListCar(title, row.firstNotNullOfOrNull { it.img }, sub)
+                if (out.size >= 600) break
+            }
+        }
+        // Pages without tables: plain lists of links
+        if (out.isEmpty()) {
+            for (a in doc.select("li a[href], .wikia-gallery-item a[href]")) {
+                val t = hrefToTitle(a.attr("href")) ?: continue
+                if (okCar(t) && t != page && seen.add(t)) out += ListCar(t, null, "")
+                if (out.size >= 300) break
+            }
+        }
+        // Photos for the ones the table didn't show
+        val missing = out.filter { it.thumb == null }.map { it.title }
+        if (missing.isNotEmpty()) {
+            val thumbs = HashMap<String, String>()
+            missing.chunked(50).take(6).forEach { chunk ->
+                runCatching {
+                    val j = call(mapOf("action" to "query", "titles" to chunk.joinToString("|"), "prop" to "pageimages",
+                        "piprop" to "thumbnail", "pithumbsize" to "400", "pilimit" to "50"))
+                    val arr = j.optJSONObject("query")?.optJSONArray("pages")
+                    if (arr != null) for (i in 0 until arr.length()) {
+                        val o = arr.getJSONObject(i)
+                        o.optJSONObject("thumbnail")?.optString("source")?.let { thumbs[o.optString("title")] = it }
+                    }
+                }
+            }
+            return out.map { if (it.thumb == null) it.copy(thumb = thumbs[it.title]) else it }
+        }
+        return out
+    }
+
+    private fun okCar(t: String) = !yearOnly.matches(t) && !t.startsWith("List of", true) && !t.startsWith("Category:") &&
+        !t.endsWith("Hot Wheels") && !t.contains("Series", true) && t.length > 1
 
     private fun sectionOf(t: org.jsoup.nodes.Element): String {
         var e: org.jsoup.nodes.Element? = t
@@ -269,7 +385,7 @@ object Wiki {
         if (arr != null) for (i in 0 until arr.length()) {
             val p = arr.getJSONObject(i)
             val name = p.optString("title").removePrefix("File:")
-            if (!Regex("\\.(jpe?g|png|webp|gif)$", RegexOption.IGNORE_CASE).containsMatchIn(name) || skip.containsMatchIn(name)) continue
+            if (!Regex("\\.(jpe?g|png|webp|gif)$", RegexOption.IGNORE_CASE).containsMatchIn(name) || skip.containsMatchIn(name) || placeholder.containsMatchIn(name)) continue
             val ii = p.optJSONArray("imageinfo")?.optJSONObject(0) ?: continue
             if (ii.optInt("width", 999) < 120) continue
             val full = ii.optString("url")

@@ -54,17 +54,26 @@ fun SettingsScreen() {
     val update = AppState.update.value
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
-        Row(Modifier.statusBarsPadding().fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { AppState.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = WW.text) }
-            Text("AJUSTES", color = WW.text, fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
-        }
+        TopBar("Ajustes")
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
             Box(Modifier.fillMaxWidth().padding(vertical = 22.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Wordmark(markSize = 52.dp, textSize = 32)
+                    Wordmark(markSize = 46.dp, textSize = 28)
                     Spacer(Modifier.height(10.dp))
                     Text("Versión 1.0.${Updater.currentCode}", color = WW.text3, fontSize = 13.sp)
                 }
+            }
+
+            SectionTitle("Cuenta")
+            Card {
+                if (com.wolfwheels.app.data.Account.loggedIn.value) {
+                    Text(com.wolfwheels.app.data.Account.name.value, color = WW.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(com.wolfwheels.app.data.Account.email.value, color = WW.text2, fontSize = 14.sp)
+                } else {
+                    Text("Crea una cuenta para guardar tu colección y verla en todos tus aparatos.", color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+                SecondaryButton(if (com.wolfwheels.app.data.Account.loggedIn.value) "Mi cuenta" else "Entrar o crear cuenta", Modifier.fillMaxWidth()) { AppState.push(Route.Account) }
             }
 
             SectionTitle("Actualizaciones")

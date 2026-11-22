@@ -35,6 +35,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.foundation.layout.offset
+import com.wolfwheels.app.data.MyCollection
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -150,7 +153,16 @@ fun HomeScreen() {
         Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp)) {
             Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { Wordmark() }
-                IconButton(onClick = { AppState.settings.value = true }) {
+                IconButton(onClick = { AppState.push(Route.Collection) }) {
+                    Box {
+                        Icon(Icons.Filled.Star, contentDescription = "Mi colección", tint = WW.amber)
+                        val n = MyCollection.items.values.count { !it.deleted && it.status == "have" }
+                        if (n > 0) Box(Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-6).dp).clip(RoundedCornerShape(50)).background(WW.orange).padding(horizontal = 4.dp)) {
+                            Text("$n", color = WW.onAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                IconButton(onClick = { AppState.push(Route.Settings) }) {
                     Box {
                         Icon(Icons.Filled.Settings, contentDescription = "Ajustes", tint = WW.text2)
                         if (AppState.update.value != null) Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(WW.orange).align(Alignment.TopEnd))

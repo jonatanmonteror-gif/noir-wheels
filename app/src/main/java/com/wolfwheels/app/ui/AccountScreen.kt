@@ -1,0 +1,131 @@
+package com.wolfwheels.app.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.wolfwheels.app.data.Account
+import com.wolfwheels.app.data.MyCollection
+import com.wolfwheels.app.data.Server
+import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
+
+@Composable
+fun AccountScreen() {
+    val scope = rememberCoroutineScope()
+    var register by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var pass by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var msg by remember { mutableStateOf<String?>(null) }
+
+    Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
+        TopBar("Mi cuenta")
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().imePadding()) {
+            Box(Modifier.fillMaxWidth().padding(vertical = 18.dp), contentAlignment = Alignment.Center) { Wordmark(markSize = 46.dp, textSize = 28) }
+
+            if (Account.loggedIn.value) {
+                Heading("Hola, ${Account.name.value}", size = 22)
+                Spacer(Modifier.height(6.dp))
+                Text(Account.email.value, color = WW.text2, fontSize = 14.sp)
+                Spacer(Modifier.height(16.dp))
+                val have = MyCollection.items.values.count { !it.deleted && it.status == "have" }
+                val want = MyCollection.items.values.count { !it.deleted && it.status == "want" }
+                SpecTile("Tu colección", "$have coches · $want en deseos", Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                val last = MyCollection.lastSync.value
+                SpecTile("Última sincronización",
+                    if (MyCollection.syncing.value) "Sincronizando…" else if (last == 0L) "Todavía no" else DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(last)),
+                    Modifier.fillMaxWidth())
+                MyCollection.lastError.value?.let { Spacer(Modifier.height(8.dp)); Text(it, color = WW.orange, fontSize = 13.sp) }
+                Spacer(Modifier.height(16.dp))
+                PrimaryButton("Sincronizar ahora", Modifier.fillMaxWidth(), enabled = !MyCollection.syncing.value) {
+                    scope.launch { MyCollection.sync(force = true) }
+                }
+                Spacer(Modifier.height(10.dp))
+                SecondaryButton("Cerrar sesión", Modifier.fillMaxWidth()) { scope.launch { Account.logout() } }
+                Spacer(Modifier.height(10.dp))
+                Text("Al cerrar sesión tu colección sigue en este móvil y en tu cuenta.", color = WW.text3, fontSize = 12.sp)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("Entrar", !register) { register = false; msg = null }
+                    Pill("Crear cuenta", register) { register = true; msg = null }
+                }
+                Spacer(Modifier.height(16.dp))
+                if (register) { Field("Nombre", name) { name = it }; Spacer(Modifier.height(10.dp)) }
+                Field("Email", email, KeyboardType.Email) { email = it.trim() }
+                Spacer(Modifier.height(10.dp))
+                Field("Contraseña", pass, KeyboardType.Password, secret = true) { pass = it }
+                if (register) Text("Mínimo 6 caracteres.", color = WW.text3, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                Spacer(Modifier.height(16.dp))
+                PrimaryButton(if (busy) "Un momento…" else if (register) "Crear cuenta" else "Entrar", Modifier.fillMaxWidth(),
+                    enabled = !busy && email.isNotBlank() && pass.isNotBlank()) {
+                    busy = true; msg = null
+                    scope.launch {
+                        try {
+                            if (register) Account.register(name.trim(), email, pass) else Account.login(email, pass)
+                            pass = ""
+                        } catch (e: kotlinx.coroutines.CancellationException) { throw e
+                        } catch (e: Exception) { msg = Server.message(e)
+                        } finally { busy = false }
+                    }
+                }
+                msg?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.orange, fontSize = 14.sp) }
+                Spacer(Modifier.height(16.dp))
+                Text("Los coches que ya marcaste en este móvil se suben a tu cuenta al entrar.", color = WW.text3, fontSize = 12.sp, lineHeight = 17.sp)
+            }
+            Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun Field(label: String, value: String, type: KeyboardType = KeyboardType.Text, secret: Boolean = false, onChange: (String) -> Unit) {
+    Column {
+        Text(label.uppercase(), color = WW.text3, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(5.dp))
+        BasicTextField(
+            value = value, onValueChange = onChange, singleLine = true,
+            textStyle = TextStyle(color = WW.text, fontSize = 16.sp, fontFamily = Inter),
+            cursorBrush = SolidColor(WW.orange),
+            keyboardOptions = KeyboardOptions(keyboardType = type),
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(WW.surface)
+                .border(1.dp, WW.line, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 14.dp)
+        )
+    }
+}

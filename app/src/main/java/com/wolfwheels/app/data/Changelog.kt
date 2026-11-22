@@ -5,6 +5,12 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("1.0.5", listOf(
+            "Toca un dato (serie de debut, diseñador, año, ruedas, serie de una versión…) y verás todos los coches de esa serie, de ese diseñador, etc.",
+            "Mi colección: marca cada versión con «La tengo» o «La quiero». Con contador de coches, modelos y deseos.",
+            "Cuenta de usuario: crea tu cuenta para guardar la colección y verla en todos tus aparatos.",
+            "Fotos para las versiones sin foto en la wiki: busca otra foto de esa versión y, si no hay, la de un anuncio de eBay.",
+        )),
         Entry("1.0.4", listOf(
             "Las actualizaciones se descargan bien también desde la app antigua (Noir Wheels).",
             "Mensajes de error más claros al actualizar: ya no dice «sin conexión» cuando el problema es otro.",
