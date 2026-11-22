@@ -70,6 +70,7 @@ fun ScanScreen() {
     var results by remember { mutableStateOf<List<Pair<String, List<Wiki.ToyMatch>>>?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
     var photo by remember { mutableStateOf<File?>(null) }
+    var baseCode by remember { mutableStateOf("") }
 
     fun search(list: List<String>) {
         if (list.isEmpty()) { msg = "No he encontrado ningún número de juguete. Prueba con más luz o escríbelo."; return }
@@ -136,6 +137,25 @@ fun ScanScreen() {
                 SecondaryButton("Buscar") { if (busy == null && manual.length >= 4) search(listOf(manual)) }
             }
 
+            // Base code of a loose car (no card): letter = year, two digits = week
+            Spacer(Modifier.height(22.dp))
+            Heading("Código de la base", size = 17)
+            Spacer(Modifier.height(6.dp))
+            Text("¿Coche sin blíster? Debajo lleva un código como «N32»: te digo cuándo se fabricó.", color = WW.text2, fontSize = 13.sp, lineHeight = 18.sp)
+            Spacer(Modifier.height(8.dp))
+            Input(baseCode, "N32", Modifier.fillMaxWidth(), KeyboardType.Ascii) { baseCode = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(3) }
+            if (baseCode.length == 3) {
+                val d = com.wolfwheels.app.data.BaseCode.decode(baseCode)
+                Spacer(Modifier.height(8.dp))
+                if (d != null) {
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(WW.surface).border(1.dp, WW.orange.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                        Text("FABRICADO EN ${d.year}", color = WW.amber, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 20.sp)
+                        Text("Semana ${d.week} (hacia ${com.wolfwheels.app.data.BaseCode.monthOf(d)}). Suele salir a la venta ese año o el siguiente; el año grabado con © es el del diseño, no el de fabricación.",
+                            color = WW.text2, fontSize = 13.sp, lineHeight = 18.sp)
+                    }
+                } else Text("Ese código no sigue el formato letra + 2 cifras (sin I, O ni Q).", color = WW.orange, fontSize = 13.sp)
+            }
+
             busy?.let {
                 Spacer(Modifier.height(20.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -156,6 +176,12 @@ fun ScanScreen() {
                     Box(Modifier.clip(Slant).background(WW.accent).padding(horizontal = 14.dp, vertical = 4.dp)) {
                         Text("✓ YA LO TIENES${if (have.sumOf { it.qty } > 1) " (×${have.sumOf { it.qty }})" else ""}", color = WW.onAccent,
                             fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                if (matches.any { MyCollection.statusOf(it.version.key(it.title)) == "want" }) {
+                    Box(Modifier.clip(Slant).background(WW.text).padding(horizontal = 14.dp, vertical = 4.dp)) {
+                        Text("★ ESTÁ EN TU LISTA DE DESEOS", color = WW.onAccent, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp)
                     }
                     Spacer(Modifier.height(10.dp))
                 }

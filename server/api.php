@@ -12,6 +12,8 @@
  *   register  POST {name,email,password}  → {pending:true}  (manda un código de 6 cifras al email)
  *   verify    POST {email,code}           → {token,name,email}  (activa la cuenta)
  *   resend    POST {email}                → {ok}  (vuelve a mandar el código)
+ *   forgot    POST {email}                  → {ok}  (manda un código para cambiar la contraseña)
+ *   reset     POST {email,code,password}    → {token,name,email}
  *   login     POST {email,password}       → {token,name,email}  ·  403 unverified si falta verificar
  *   me        GET  (Authorization: Bearer)
  *   logout    POST (Bearer)
@@ -153,7 +155,7 @@ function wolfMail(string $to, string $subject, string $title, string $body, stri
 }
 
 /** Crea un código nuevo para ese email, lo guarda (cifrado) y lo manda por correo. */
-function sendCode(string $email, string $name): string {
+function sendCode(string $email, string $name, string $purpose = 'verify'): string {
     global $dir;
     $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     $ok = locked("$dir/users.json", function ($users) use ($email, $code) {
@@ -172,6 +174,13 @@ function sendCode(string $email, string $name): string {
     });
     if ($ok !== 'ok') return $ok;
     $safe = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $box = '<div style="margin:22px 0;padding:18px;background:#0B0C0F;border-radius:14px;text-align:center;border:1px solid #2A2E37">'
+        . '<span style="font-size:40px;font-weight:800;font-style:italic;letter-spacing:10px;color:#FFB81C">' . $code . '</span></div>';
+    if ($purpose === 'reset') {
+        return wolfMail($email, "Cambia tu contraseña de Wolf Wheels: $code", 'Nueva contraseña',
+            "Hola $safe, has pedido cambiar la contraseña de tu cuenta. Este es tu código:" . $box . 'Escríbelo en la app junto a tu contraseña nueva. Caduca en 30 minutos.',
+            'Si no lo has pedido tú, ignora este correo: tu contraseña no cambia.') ? 'ok' : 'fail';
+    }
     $body = "Hola $safe, ¡bienvenido al garaje! Este es tu código para activar la cuenta:"
         . '<div style="margin:22px 0;padding:18px;background:#0B0C0F;border-radius:14px;text-align:center;border:1px solid #2A2E37">'
         . '<span style="font-size:40px;font-weight:800;font-style:italic;letter-spacing:10px;color:#FFB81C">' . $code . '</span></div>'
@@ -258,6 +267,42 @@ case 'resend': {
     if ($sc === 'rate') fail(429, 'mail_wait');
     if ($sc === 'fail') fail(502, 'mail');
     out(['ok' => true]);
+}
+case 'forgot': {
+    if ($method !== 'POST') fail(405, 'method');
+    $email = strtolower(trim(body()['email'] ?? ''));
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $u = $users[$email] ?? null;
+    if (!$u) out(['ok' => true]);   // no se dice si el email existe
+    $sc = sendCode($email, $u['name'], 'reset');
+    if ($sc === 'rate') fail(429, 'mail_wait');
+    if ($sc === 'fail') fail(502, 'mail');
+    out(['ok' => true]);
+}
+case 'reset': {
+    if ($method !== 'POST') fail(405, 'method');
+    $b = body();
+    $email = strtolower(trim($b['email'] ?? ''));
+    $code = preg_replace('/\D/', '', (string)($b['code'] ?? ''));
+    $pass = (string)($b['password'] ?? '');
+    if (mb_strlen($pass) < 6) fail(400, 'password');
+    if (tooMany($email)) fail(429, 'wait');
+    $u = locked("$dir/users.json", function ($users) use ($email, $code, $pass) {
+        $u = $users[$email] ?? null;
+        if (!$u) return [null, 'wrong'];
+        if (($u['codeExp'] ?? 0) < time() || ($u['codeTries'] ?? 0) >= 5) return [null, 'expired'];
+        if (!password_verify($code, $u['code'] ?? '')) { $u['codeTries'] = ($u['codeTries'] ?? 0) + 1; $users[$email] = $u; return [$users, 'wrong']; }
+        $u['hash'] = password_hash($pass, PASSWORD_DEFAULT);
+        $u['verified'] = true;   // el código demuestra que el email es suyo
+        unset($u['code'], $u['codeExp'], $u['codeTries']);
+        $users[$email] = $u;
+        return [$users, $u];
+    });
+    if ($u === 'wrong') { tooMany($email, true); fail(401, 'code'); }
+    if ($u === 'expired') fail(410, 'expired');
+    // Cierra las demás sesiones abiertas con la contraseña antigua
+    locked("$dir/tokens.json", function ($t) use ($u) { foreach ($t as $k => $row) if (($row['u'] ?? '') === $u['id']) unset($t[$k]); return [$t, null]; });
+    out(['token' => newToken($u['id']), 'name' => $u['name'], 'email' => $email]);
 }
 case 'login': {
     if ($method !== 'POST') fail(405, 'method');

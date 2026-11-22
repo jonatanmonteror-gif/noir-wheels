@@ -28,6 +28,8 @@ object AppState {
     val viewer = mutableStateOf<Viewer?>(null)
     val update = mutableStateOf<Updater.Release?>(null)
     val resumes = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Tab Mi garaje opens with ("have", "want"…). */
+    val garageTab = mutableStateOf("have")
 
     data class Viewer(val photos: List<Wiki.Photo>, val start: Int)
 
@@ -64,6 +66,7 @@ fun App() {
             }
             AppState.viewer.value?.let { PhotoViewer(it) }
             UpdateDialog()
+            CrashDialog()
         }
     }
 }

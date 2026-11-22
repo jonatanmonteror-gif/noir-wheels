@@ -1,6 +1,7 @@
 package com.wolfwheels.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +56,8 @@ fun AccountScreen() {
     var codeFor by remember { mutableStateOf<String?>(null) }   // email waiting for its verification code
     var code by remember { mutableStateOf("") }
     var info by remember { mutableStateOf<String?>(null) }
+    var resetFor by remember { mutableStateOf<String?>(null) }   // email changing its password
+    var newPass by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         TopBar("Mi cuenta")
@@ -83,6 +86,40 @@ fun AccountScreen() {
                 SecondaryButton("Cerrar sesión", Modifier.fillMaxWidth()) { scope.launch { Account.logout() } }
                 Spacer(Modifier.height(10.dp))
                 Text("Al cerrar sesión tu garaje sigue en este móvil y en tu cuenta.", color = WW.text3, fontSize = 12.sp)
+            } else if (resetFor != null) {
+                Heading("Nueva contraseña", size = 22)
+                Spacer(Modifier.height(8.dp))
+                Text("Si hay una cuenta con ${resetFor}, te hemos mandado un código de 6 cifras. Escríbelo con tu contraseña nueva.",
+                    color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
+                Spacer(Modifier.height(16.dp))
+                Field("Código", code, KeyboardType.Number) { code = it.filter { c -> c.isDigit() }.take(6) }
+                Spacer(Modifier.height(10.dp))
+                Field("Contraseña nueva", newPass, KeyboardType.Password, secret = true) { newPass = it }
+                Text("Mínimo 6 caracteres.", color = WW.text3, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                Spacer(Modifier.height(16.dp))
+                PrimaryButton(if (busy) "Un momento…" else "Cambiar contraseña", Modifier.fillMaxWidth(), enabled = !busy && code.length == 6 && newPass.length >= 6) {
+                    busy = true; msg = null
+                    scope.launch {
+                        try { Account.reset(resetFor!!, code, newPass); resetFor = null; code = ""; newPass = ""; pass = "" }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { msg = Server.message(e) }
+                        finally { busy = false }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryButton("Reenviar código", Modifier.weight(1f)) {
+                        msg = null; info = null
+                        scope.launch {
+                            try { Account.forgot(resetFor!!); info = "Código enviado de nuevo." }
+                            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                            catch (e: Exception) { msg = Server.message(e) }
+                        }
+                    }
+                    SecondaryButton("Volver", Modifier.weight(1f)) { resetFor = null; code = ""; newPass = ""; msg = null; info = null }
+                }
+                info?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.amber, fontSize = 14.sp) }
+                msg?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.orange, fontSize = 14.sp) }
             } else if (codeFor != null) {
                 Heading("Verifica tu email", size = 22)
                 Spacer(Modifier.height(8.dp))
@@ -141,6 +178,22 @@ fun AccountScreen() {
                     }
                 }
                 msg?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.orange, fontSize = 14.sp) }
+                if (!register) {
+                    Spacer(Modifier.height(14.dp))
+                    Text("¿HAS OLVIDADO LA CONTRASEÑA?", color = WW.amber, fontFamily = Barlow, fontWeight = FontWeight.Bold,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp,
+                        modifier = Modifier.clickable {
+                            val e = email.trim().lowercase()
+                            if (!e.contains("@")) { msg = "Escribe primero tu email."; return@clickable }
+                            msg = null; busy = true
+                            scope.launch {
+                                try { Account.forgot(e); resetFor = e; code = ""; newPass = "" }
+                                catch (ex: kotlinx.coroutines.CancellationException) { throw ex }
+                                catch (ex: Exception) { msg = Server.message(ex) }
+                                finally { busy = false }
+                            }
+                        }.padding(vertical = 4.dp))
+                }
                 Spacer(Modifier.height(16.dp))
                 Text(if (register) "Te mandaremos un código a tu email para verificarlo. Los coches que ya marcaste en este móvil se suben a tu cuenta." else "Los coches que ya marcaste en este móvil se suben a tu cuenta al entrar.", color = WW.text3, fontSize = 12.sp, lineHeight = 17.sp)
             }

@@ -210,14 +210,6 @@ fun HomeScreen() {
             }
             Spacer(Modifier.height(10.dp))
         }
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(Wiki.collections) { i, c ->
-                Pill(c.label, selected = (source as? Source.Cat)?.index == i) {
-                    query = ""; focus.clearFocus(); show(Source.Cat(i))
-                }
-            }
-        }
-        Spacer(Modifier.height(6.dp))
 
         val title = when (val s = source) {
             is Source.Search -> "Resultados de “${s.q}”"
@@ -231,6 +223,17 @@ fun HomeScreen() {
             verticalArrangement = Gap,
             modifier = Modifier.fillMaxSize()
         ) {
+            // Livelier home (hidden while searching)
+            if (source is Source.Cat) item(span = { GridItemSpan(maxLineSpan) }) { HomeExtras() }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
+                    itemsIndexed(Wiki.collections) { i, c ->
+                        Pill(c.label, selected = (source as? Source.Cat)?.index == i) {
+                            query = ""; focus.clearFocus(); show(Source.Cat(i))
+                        }
+                    }
+                }
+            }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Heading(title, Modifier.weight(1f).padding(top = 4.dp, bottom = 2.dp), size = 22,

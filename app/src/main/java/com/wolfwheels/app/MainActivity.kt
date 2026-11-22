@@ -12,7 +12,11 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.wolfwheels.app.data.ErrorLog.init(this)
         Prefs.init(this)
+        com.wolfwheels.app.data.Wiki.init(this)
+        com.wolfwheels.app.data.Wiki.trimCache()
+        com.wolfwheels.app.data.Recents.init(this)
         com.wolfwheels.app.data.Account.init()
         com.wolfwheels.app.data.MyCollection.init(this)
         com.wolfwheels.app.data.Translator.init(this)

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -61,7 +63,7 @@ private val seriesTotals = mutableStateMapOf<String, Int>()
 @Composable
 fun CollectionScreen() {
     val ctx = LocalContext.current
-    var tab by remember { mutableStateOf("have") }            // have · want · dup · series
+    var tab by remember { mutableStateOf(AppState.garageTab.value.also { AppState.garageTab.value = "have" }) }            // have · want · dup · series
     var garage by remember { mutableStateOf<String?>(null) }
     var sort by remember { mutableStateOf(0) }                 // 0 recent · 1 year · 2 name
     var query by remember { mutableStateOf("") }
@@ -141,6 +143,41 @@ fun CollectionScreen() {
                         }
                     }
                     Spacer(Modifier.height(10.dp))
+                    // Value of my garage (coming soon: prices from eBay listings)
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(14.dp)).padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("VALOR DE MI GARAJE", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 16.sp)
+                            Text("Muy pronto: cuánto vale cada coche y tu garaje entero, con precios reales de anuncios.", color = WW.text3, fontSize = 12.sp, lineHeight = 16.sp)
+                        }
+                        Spacer(Modifier.padding(4.dp))
+                        Box(Modifier.clip(Slant).background(WW.surface2).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                            Text("PRÓXIMAMENTE", color = WW.amber, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 12.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    // Achievements
+                    val badges = com.wolfwheels.app.data.Achievements.all(MyCollection.items.values,
+                        haveItems.filter { it.seriesLink != null }.groupBy { it.seriesLink!! }.count { (l, g) -> (seriesTotals[l] ?: 0).let { t -> t > 0 && g.map { it.title }.distinct().size >= t } })
+                    Heading("Logros", size = 16, trailing = "${badges.count { it.done }}/${badges.size}")
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(badges.size) { i ->
+                            val b = badges.sortedByDescending { it.done }[i]
+                            Column(
+                                Modifier.width(118.dp).clip(RoundedCornerShape(14.dp)).background(if (b.done) WW.surface else WW.bg)
+                                    .border(1.dp, if (b.done) WW.orange.copy(alpha = 0.6f) else WW.line, RoundedCornerShape(14.dp)).padding(10.dp)
+                            ) {
+                                Text(b.icon, fontSize = 24.sp, modifier = Modifier.then(if (b.done) Modifier else Modifier.graphicsLayer { alpha = 0.3f }))
+                                Text(b.title.uppercase(), color = if (b.done) WW.text else WW.text3, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold,
+                                    fontStyle = FontStyle.Italic, fontSize = 14.sp, maxLines = 1)
+                                Text(b.desc, color = WW.text3, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PrimaryButton("Escanear", Modifier.weight(1f)) { AppState.push(Route.Scan) }
                         SecondaryButton("Exportar", Modifier.weight(1f)) { export() }

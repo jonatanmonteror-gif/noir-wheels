@@ -5,6 +5,16 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Inicio, logros y más", listOf(
+            "Inicio renovado: resumen de Mi garaje, lista para la tienda, coche al azar, vistos recientemente y nuevos modelos 2026.",
+            "¿Has olvidado la contraseña? Te llega un código al correo para poner una nueva.",
+            "Logros en Mi garaje y el valor de tu garaje (próximamente).",
+            "Copia de seguridad: guarda tu garaje en un archivo y recupéralo cuando quieras (Ajustes).",
+            "Comparte cualquier coche como una imagen con el estilo de Wolf Wheels.",
+            "El escáner avisa si el coche está en tu lista de deseos y descifra el código de la base (cuándo se fabricó).",
+            "Las fichas que ya has visto se abren al momento y sin conexión.",
+            "Si la app se cierra sola, al volver te enseña un informe para arreglarlo.",
+        )),
         Entry("Mi garaje", listOf(
             "«Mi colección» ahora se llama Mi garaje, con su botón en el inicio.",
             "Las pestañas, la búsqueda, el orden y los garajes van dentro de «Personalizar vista», plegada para que todo quede más limpio.",

@@ -117,6 +117,8 @@ object MyCollection {
         return sb.toString()
     }
 
+    fun saveAndSync() { persist(); scheduleSync() }
+
     fun scheduleSync() {
         if (!Account.loggedIn.value) return
         pending?.cancel()

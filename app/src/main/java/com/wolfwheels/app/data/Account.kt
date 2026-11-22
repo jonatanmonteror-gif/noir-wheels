@@ -35,6 +35,15 @@ object Account {
         MyCollection.sync(force = true)
     }
 
+    /** Sends a code to change the password. */
+    suspend fun forgot(email: String) { Server.call("forgot", JSONObject().put("email", email)) }
+
+    /** New password with the emailed code; logs in. */
+    suspend fun reset(email: String, code: String, password: String) {
+        save(Server.call("reset", JSONObject().put("email", email).put("code", code).put("password", password)))
+        MyCollection.sync(force = true)
+    }
+
     suspend fun resend(email: String) { Server.call("resend", JSONObject().put("email", email)) }
 
     suspend fun login(email: String, password: String) {

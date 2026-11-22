@@ -55,6 +55,14 @@ fun SettingsScreen() {
     var ready by remember { mutableStateOf<File?>(null) }
     val update = AppState.update.value
     var viewOpen by remember { mutableStateOf(false) }
+    var backupMsg by remember { mutableStateOf<String?>(null) }
+    val restorePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) backupMsg = runCatching {
+            val text = ctx.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
+            val n = com.wolfwheels.app.data.Backup.import(text)
+            if (n == 0) "La copia no tenía nada nuevo: tu garaje ya estaba al día." else "Copia recuperada: $n coches añadidos o actualizados."
+        }.getOrElse { "No se pudo leer: ${it.message ?: "archivo no válido"}" }
+    }
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         TopBar("Ajustes")
@@ -104,6 +112,28 @@ fun SettingsScreen() {
                 }
                 Spacer(Modifier.height(12.dp))
                 SecondaryButton(if (com.wolfwheels.app.data.Account.loggedIn.value) "Mi cuenta" else "Entrar o crear cuenta", Modifier.fillMaxWidth()) { AppState.push(Route.Account) }
+            }
+
+            SectionTitle("Copia de seguridad")
+            Card {
+                Text("Guarda tu garaje en un archivo (en Drive, el correo o el móvil) y recupéralo cuando quieras, también en otro móvil.",
+                    color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryButton("Guardar copia", Modifier.weight(1f)) {
+                        runCatching {
+                            val dir = java.io.File(ctx.cacheDir, "share").apply { mkdirs() }
+                            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(java.util.Date())
+                            val f = java.io.File(dir, "wolf-wheels-copia-$stamp.json").apply { writeText(com.wolfwheels.app.data.Backup.export()) }
+                            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
+                            ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND)
+                                .setType("application/json").putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION), "Guardar copia de Mi garaje"))
+                        }
+                    }
+                    SecondaryButton("Restaurar", Modifier.weight(1f)) { restorePicker.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
+                }
+                backupMsg?.let { Spacer(Modifier.height(10.dp)); Text(it, color = WW.amber, fontSize = 13.sp) }
             }
 
             SectionTitle("Actualizaciones")

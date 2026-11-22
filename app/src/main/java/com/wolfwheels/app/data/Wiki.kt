@@ -60,10 +60,54 @@ object Wiki {
         Collection("Monster Trucks", "Category:Monster Trucks"),
     )
 
+    private var cacheDir: java.io.File? = null
+    /** Answers of the wiki saved on the phone: pages already seen open at once and without internet. */
+    fun init(ctx: android.content.Context) { cacheDir = java.io.File(ctx.filesDir, "wiki-cache").apply { mkdirs() } }
+
+    private fun cacheFile(url: String): java.io.File? = cacheDir?.let { dir ->
+        val h = java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+        java.io.File(dir, "$h.json")
+    }
+
     private suspend fun call(params: Map<String, String>): JSONObject {
         val b = API.toHttpUrl().newBuilder()
         (mapOf("format" to "json", "formatversion" to "2") + params).forEach { (k, v) -> b.addQueryParameter(k, v) }
-        return JSONObject(Http.get(b.build().toString()))
+        val url = b.build().toString()
+        val f = cacheFile(url)
+        // Fresh copy (less than 12 h): no need to ask the wiki again
+        if (f != null && f.exists() && System.currentTimeMillis() - f.lastModified() < 12 * 3600_000L) {
+            runCatching { return JSONObject(f.readText()) }
+        }
+        return try {
+            val text = Http.get(url)
+            val j = JSONObject(text)
+            if (f != null && !j.has("error")) runCatching { f.writeText(text) }
+            j
+        } catch (e: Exception) {
+            // No internet: use what was saved, however old
+            if (f != null && f.exists()) JSONObject(f.readText()) else throw e
+        }
+    }
+
+    /** Deletes saved answers older than 30 days (called when the app opens). */
+    fun trimCache() {
+        val limit = System.currentTimeMillis() - 30L * 24 * 3600_000
+        cacheDir?.listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
+    }
+
+    /** A random car page. */
+    suspend fun randomCar(): String? {
+        repeat(4) {
+            val j = JSONObject(Http.get(API.toHttpUrl().newBuilder().addQueryParameter("action", "query").addQueryParameter("format", "json")
+                .addQueryParameter("formatversion", "2").addQueryParameter("list", "random").addQueryParameter("rnnamespace", "0")
+                .addQueryParameter("rnlimit", "5").build().toString()))
+            val arr = j.optJSONObject("query")?.optJSONArray("random") ?: return null
+            for (i in 0 until arr.length()) {
+                val t = arr.getJSONObject(i).optString("title")
+                if (okCar(t) && !t.contains("/") && !t.contains("(disambiguation)")) return t
+            }
+        }
+        return null
     }
 
     private fun contOf(j: JSONObject): Map<String, String>? {

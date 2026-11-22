@@ -103,6 +103,7 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
                 Translator.awaitReady(4000)
                 val d = Translator.textsOf(raw)
                 detail = d
+                com.wolfwheels.app.data.Recents.add(title, d.hero ?: d.versions.lastOrNull { it.photo != null }?.photo)
                 selected = d.versions.firstOrNull { selectKey != null && it.key(title) == selectKey }
                     ?: d.versions.firstOrNull { selectToy != null && it.toy.uppercase().contains(selectToy.uppercase()) }
                     ?: d.versions.lastOrNull { it.photo != null } ?: d.versions.lastOrNull()
@@ -134,7 +135,11 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
     val years = d?.versions.orEmpty().mapNotNull { it.year.take(4).toIntOrNull() }
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
-        TopBar(title)
+        TopBar(title) {
+            IconButton(onClick = {
+                scope.launch { runCatching { ShareCard.share(ctx, title, selected, selected?.let { photoOf(it) } ?: detail?.hero) } }
+            }) { Icon(androidx.compose.material.icons.Icons.Filled.Share, "Compartir como imagen", tint = WW.text2) }
+        }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(104.dp),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
