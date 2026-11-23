@@ -153,6 +153,20 @@ fun ScanScreen() {
                 SecondaryButton("Buscar") { if (busy == null && manual.length >= 4) search(listOf(manual)) }
             }
 
+            // Loose car without card: AI recognition from a photo
+            Spacer(Modifier.height(22.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.5.dp, WW.amber.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                    .clickable { AppState.push(Route.Identify) }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("¿COCHE SUELTO, SIN TARJETA?", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 16.sp)
+                    Text("Hazle una foto y te digo qué modelo es", color = WW.amber, fontSize = 13.sp)
+                }
+                Text("›", color = WW.orange, fontSize = 26.sp)
+            }
+
             // Base code of a loose car (no card): letter = year, two digits = week
             Spacer(Modifier.height(22.dp))
             Heading("Código de la base", size = 17)

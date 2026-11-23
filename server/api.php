@@ -21,6 +21,9 @@
  *   public    GET/POST (Bearer) {on,slug,want} → ajustes del garaje público
  *   page      GET  u=slug → página web del garaje público (jonatanmontero.es/garaje/slug)
  *   img       GET  q=texto → {url}  (foto de un anuncio de eBay, con caché de 30 días)
+ *   matches   GET  (Bearer) → {want:[…], trade:[…], public}  quién tiene lo que busco / quién busca lo que cambio
+ *   contact   POST (Bearer) {slug,title,message} → {ok}  correo al dueño de un garaje público (responde a tu email)
+ *   identify  POST (Bearer) {image: jpeg en base64} → {candidates:[{name,confidence,color,notes}]}  (IA de OpenRouter)
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -106,7 +109,7 @@ function sender(): string {
  * Envía por SMTP con el buzón de Wolf Wheels (smtp.hostinger.com, SSL 465) si config.php tiene SMTP_PASS.
  * Así el correo sale firmado por el servidor de correo de Hostinger y Gmail lo acepta. Sin SMTP_PASS usa mail().
  */
-function smtpSend(string $to, string $subjectEnc, string $html, string $fromHeader): bool {
+function smtpSend(string $to, string $subjectEnc, string $html, string $fromHeader, string $replyTo = ''): bool {
     $user = defined('SMTP_USER') ? SMTP_USER : 'wolfwheels@jonatanmontero.es';
     $host = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.hostinger.com';
     $fp = @stream_socket_client("ssl://$host:465", $errno, $errstr, 15);
@@ -126,7 +129,8 @@ function smtpSend(string $to, string $subjectEnc, string $html, string $fromHead
         $date = date('r');
         $id = bin2hex(random_bytes(12)) . '@jonatanmontero.es';
         $body = chunk_split(base64_encode($html));
-        $msg = "Date: $date\r\nMessage-ID: <$id>\r\nFrom: $fromHeader\r\nReply-To: $fromHeader\r\nTo: <$to>\r\nSubject: $subjectEnc\r\n"
+        $rt = $replyTo !== '' ? $replyTo : $fromHeader;
+        $msg = "Date: $date\r\nMessage-ID: <$id>\r\nFrom: $fromHeader\r\nReply-To: $rt\r\nTo: <$to>\r\nSubject: $subjectEnc\r\n"
             . "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n$body\r\n.";
         $ok = $cmd($msg, '250');
     }
@@ -135,7 +139,7 @@ function smtpSend(string $to, string $subjectEnc, string $html, string $fromHead
 }
 
 /** Correo con la imagen de Wolf Wheels: logo, fondo oscuro y acento naranja. */
-function wolfMail(string $to, string $subject, string $title, string $body, string $foot = ''): bool {
+function wolfMail(string $to, string $subject, string $title, string $body, string $foot = '', string $replyTo = ''): bool {
     $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
     $logo = "https://$host/wolf-wheels/logo.png";
     $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0B0C0F">'
@@ -152,8 +156,9 @@ function wolfMail(string $to, string $subject, string $title, string $body, stri
         . '</table></td></tr></table></body></html>';
     $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $from = sender();
-    if (defined('SMTP_PASS') && SMTP_PASS !== '') return smtpSend($to, $subjectEnc, $html, $from);
-    $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\nReply-To: $from\r\n";
+    if (defined('SMTP_PASS') && SMTP_PASS !== '') return smtpSend($to, $subjectEnc, $html, $from, $replyTo);
+    $rt = $replyTo !== '' ? $replyTo : $from;
+    $headers = "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nFrom: $from\r\nReply-To: $rt\r\n";
     return @mail($to, $subjectEnc, $html, $headers, '-f' . preg_replace('/.*<([^>]+)>.*/', '$1', $from));
 }
 
@@ -424,8 +429,151 @@ case 'page': {
     echo garagePage($user, array_values($col['items'] ?? []), !empty($user['public']['want']));
     exit;
 }
+case 'matches': {
+    $u = auth();
+    $mine = json_decode(@file_get_contents("$dir/col/" . $u['id'] . '.json') ?: '[]', true) ?: [];
+    $mine = array_filter($mine['items'] ?? [], fn($i) => empty($i['deleted']));
+    $myWant = array_values(array_filter($mine, fn($i) => ($i['status'] ?? '') === 'want'));
+    $myTrade = array_values(array_filter($mine, fn($i) => ($i['status'] ?? '') === 'have' && (!empty($i['trade']) || (int)($i['qty'] ?? 1) > 1)));
+    $norm = fn($s) => mb_strtolower(trim((string)$s));
+    $map = json_decode(@file_get_contents("$dir/public.json") ?: '[]', true) ?: [];
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $byId = [];
+    foreach ($users as $x) if (!empty($x['id'])) $byId[$x['id']] = $x;
+    $wantOut = []; $tradeOut = [];
+    foreach ($myWant as $w) $wantOut[$w['key']] = ['item' => $w, 'offers' => []];
+    foreach ($myTrade as $t) $tradeOut[$t['key']] = ['item' => $t, 'seekers' => []];
+    foreach ($map as $slug => $uid) {
+        if ($uid === $u['id'] || empty($byId[$uid]['public']['on'])) continue;
+        $owner = $byId[$uid];
+        $col = json_decode(@file_get_contents("$dir/col/$uid.json") ?: '[]', true) ?: [];
+        $items = array_filter($col['items'] ?? [], fn($i) => empty($i['deleted']));
+        $who = ['slug' => $slug, 'name' => $owner['name'] ?? 'Coleccionista'];
+        $haveByKey = []; $haveByTitle = []; $wantByKey = []; $wantByTitle = [];
+        foreach ($items as $i) {
+            $st = $i['status'] ?? '';
+            if ($st === 'have') { $haveByKey[$i['key']] = $i; $haveByTitle[$norm($i['title'] ?? '')][] = $i; }
+            if ($st === 'want' && !empty($owner['public']['want'])) { $wantByKey[$i['key']] = $i; $wantByTitle[$norm($i['title'] ?? '')][] = $i; }
+        }
+        foreach ($wantOut as $k => &$row) {
+            if (isset($haveByKey[$k])) {
+                $h = $haveByKey[$k];
+                $row['offers'][] = $who + ['kind' => (!empty($h['trade']) || (int)($h['qty'] ?? 1) > 1) ? 'trade' : 'have',
+                    'year' => $h['year'] ?? '', 'color' => $h['color'] ?? '', 'photo' => $h['photo'] ?? '', 'qty' => (int)($h['qty'] ?? 1)];
+            } elseif (!empty($haveByTitle[$norm($row['item']['title'] ?? '')])) {
+                $alts = $haveByTitle[$norm($row['item']['title'] ?? '')];
+                usort($alts, fn($a, $b) => (int)!empty($b['trade']) <=> (int)!empty($a['trade']));
+                $h = $alts[0];
+                $row['offers'][] = $who + ['kind' => 'model', 'year' => $h['year'] ?? '', 'color' => $h['color'] ?? '',
+                    'photo' => $h['photo'] ?? '', 'trade' => !empty($h['trade']), 'versions' => count($alts)];
+            }
+        }
+        unset($row);
+        foreach ($tradeOut as $k => &$row) {
+            if (isset($wantByKey[$k])) $row['seekers'][] = $who + ['kind' => 'exact'];
+            elseif (!empty($wantByTitle[$norm($row['item']['title'] ?? '')])) $row['seekers'][] = $who + ['kind' => 'model'];
+        }
+        unset($row);
+    }
+    $rank = ['trade' => 0, 'have' => 1, 'model' => 2, 'exact' => 0];
+    $clean = function ($rows, $field) use ($rank) {
+        $rows = array_values(array_filter($rows, fn($r) => count($r[$field]) > 0));
+        foreach ($rows as &$r) {
+            usort($r[$field], fn($a, $b) => $rank[$a['kind']] <=> $rank[$b['kind']]);
+            $r[$field] = array_slice($r[$field], 0, 30);
+            $i = $r['item'];
+            $r['item'] = ['key' => $i['key'], 'title' => $i['title'] ?? '', 'year' => $i['year'] ?? '', 'color' => $i['color'] ?? '',
+                'series' => $i['series'] ?? '', 'photo' => $i['photo'] ?? '', 'toy' => $i['toy'] ?? ''];
+        }
+        usort($rows, fn($a, $b) => $rank[$a[$field][0]['kind']] <=> $rank[$b[$field][0]['kind']] ?: count($b[$field]) <=> count($a[$field]));
+        return $rows;
+    };
+    out(['want' => $clean(array_values($wantOut), 'offers'), 'trade' => $clean(array_values($tradeOut), 'seekers'),
+        'public' => !empty($u['public']['on']), 'wants' => count($myWant), 'trades' => count($myTrade), 'garages' => max(0, count($map) - (isset(array_flip($map)[$u['id']]) ? 1 : 0))]);
+}
+case 'contact': {
+    $u = auth();
+    $b = body();
+    $slug = strtolower((string)($b['slug'] ?? ''));
+    $title = mb_substr(trim(strip_tags((string)($b['title'] ?? ''))), 0, 120);
+    $msg = mb_substr(trim(strip_tags((string)($b['message'] ?? ''))), 0, 1500);
+    if ($msg === '') fail(400, 'message');
+    $map = json_decode(@file_get_contents("$dir/public.json") ?: '[]', true) ?: [];
+    $uid = $map[$slug] ?? null;
+    if (!$uid || $uid === $u['id']) fail(404, 'garage');
+    $users = json_decode(@file_get_contents("$dir/users.json") ?: '[]', true) ?: [];
+    $toEmail = null; $toName = '';
+    foreach ($users as $e => $x) if (($x['id'] ?? '') === $uid && !empty($x['public']['on'])) { $toEmail = $e; $toName = $x['name'] ?? ''; }
+    if (!$toEmail) fail(404, 'garage');
+    if (quota('contact:' . $u['id'], 15, 86400)) fail(429, 'too_many');
+    $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+    $from = $u['name'] ?? 'Un coleccionista';
+    $mySlug = $u['public']['slug'] ?? '';
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    $body = 'Hola ' . $h($toName) . ', <b style="color:#F4F4F5">' . $h($from) . '</b> ha visto tu garaje en Wolf Wheels'
+        . ($title !== '' ? ' y le interesa <b style="color:#FFB81C">' . $h($title) . '</b>' : '') . '.'
+        . '<div style="margin:18px 0;padding:14px 16px;background:#0B0C0F;border-radius:12px;border-left:4px solid #FF5A1A;color:#F4F4F5;white-space:pre-wrap">' . $h($msg) . '</div>'
+        . 'Para contestarle, responde a este correo: le llegará directamente a ' . $h($from) . '.'
+        . (!empty($u['public']['on']) && $mySlug !== '' ? '<br><br>Su garaje: <a style="color:#FF7A1A" href="https://' . $h($host) . '/garaje/' . $h($mySlug) . '">' . $h($host) . '/garaje/' . $h($mySlug) . '</a>' : '');
+    $replyTo = '=?UTF-8?B?' . base64_encode($from) . '?= <' . $u['email'] . '>';
+    $ok = wolfMail($toEmail, "Wolf Wheels · $from quiere hablar contigo" . ($title !== '' ? " sobre $title" : ''), 'Mensaje de un coleccionista', $body,
+        'Te llega porque tu garaje de Wolf Wheels es público. Puedes ocultarlo desde la app, en Mi garaje.', $replyTo);
+    if (!$ok) fail(502, 'mail');
+    out(['ok' => true]);
+}
+case 'identify': {
+    $u = auth();
+    if (!defined('OPENROUTER_KEY') || OPENROUTER_KEY === '') fail(503, 'no_ai');
+    $img = (string)(body()['image'] ?? '');
+    if (strlen($img) < 1000 || strlen($img) > 3000000) fail(400, 'image');
+    $raw = base64_decode($img, true);
+    if ($raw === false || substr($raw, 0, 3) !== "\xFF\xD8\xFF") fail(400, 'image');
+    if (quota('identify:' . $u['id'], 40, 86400)) fail(429, 'too_many');
+    $model = defined('OPENROUTER_MODEL') && OPENROUTER_MODEL !== '' ? OPENROUTER_MODEL : 'google/gemini-2.5-flash';
+    $prompt = 'You are an expert Hot Wheels die-cast collector. Identify the Hot Wheels car in the photo (it is loose, without card). '
+        . 'Return ONLY JSON: {"candidates":[{"name":"exact casting name as written in the Hot Wheels Wiki (hotwheels.fandom.com) page title","confidence":0-100,"color":"main body color in Spanish","notes":"short Spanish hint: tampos, wheels, year range"}]}. '
+        . 'Give 1 to 3 candidates, best first. If it is not a Hot Wheels car, or you cannot tell, return {"candidates":[]}.';
+    $payload = ['model' => $model, 'temperature' => 0.2, 'max_tokens' => 600,
+        'response_format' => ['type' => 'json_object'],
+        'messages' => [['role' => 'user', 'content' => [
+            ['type' => 'text', 'text' => $prompt],
+            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,' . $img]],
+        ]]]];
+    $ch = curl_init('https://openrouter.ai/api/v1/chat/completions');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 45,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . OPENROUTER_KEY, 'Content-Type: application/json',
+            'HTTP-Referer: https://jonatanmontero.es', 'X-Title: Wolf Wheels'],
+        CURLOPT_POSTFIELDS => json_encode($payload)]);
+    $res = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($res === false || $code >= 400) { error_log("WOLF identify $code " . substr((string)$res, 0, 300)); fail(502, 'ai'); }
+    $txt = json_decode($res, true)['choices'][0]['message']['content'] ?? '';
+    if (preg_match('/\{.*\}/s', $txt, $m)) $txt = $m[0];
+    $j = json_decode($txt, true);
+    $out = [];
+    foreach (($j['candidates'] ?? []) as $c) {
+        $n = trim((string)($c['name'] ?? ''));
+        if ($n === '') continue;
+        $out[] = ['name' => mb_substr($n, 0, 80), 'confidence' => max(0, min(100, (int)($c['confidence'] ?? 0))),
+            'color' => mb_substr((string)($c['color'] ?? ''), 0, 40), 'notes' => mb_substr((string)($c['notes'] ?? ''), 0, 200)];
+        if (count($out) >= 3) break;
+    }
+    out(['candidates' => $out]);
+}
 default:
     fail(404, 'action');
+}
+
+/** Límite de uso por usuario y acción: true si ya ha llegado al máximo en la ventana de tiempo. */
+function quota(string $key, int $max, int $window): bool {
+    global $dir;
+    return locked("$dir/quota.json", function ($a) use ($key, $max, $window) {
+        $now = time();
+        foreach ($a as $k => $l) { $a[$k] = array_values(array_filter($l, fn($t) => $t > $now - 86400 * 2)); if (!$a[$k]) unset($a[$k]); }
+        $list = array_values(array_filter($a[$key] ?? [], fn($t) => $t > $now - $window));
+        if (count($list) >= $max) return [$a, true];
+        $list[] = $now; $a[$key] = $list;
+        return [$a, false];
+    });
 }
 
 /** Token de aplicación de eBay (dura 2 horas; se guarda para no pedirlo cada vez). */

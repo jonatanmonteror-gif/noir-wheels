@@ -97,6 +97,19 @@ fun HomeExtras() {
             }
         }
 
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WW.surface).border(1.dp, WW.amber.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                .clickable { AppState.push(Route.Matches) }.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("¿QUIÉN TIENE LO QUE BUSCO?", color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 15.sp, maxLines = 1)
+                Text("Cruza tu lista con otros garajes", color = WW.amber, fontSize = 12.sp, maxLines = 1)
+            }
+            Text("›", color = WW.orange, fontSize = 24.sp)
+        }
+
         // Recently viewed
         if (Recents.items.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))

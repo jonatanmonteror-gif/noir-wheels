@@ -190,6 +190,8 @@ fun CollectionScreen() {
                         SecondaryButton("Añadir a mano", Modifier.weight(1f)) { AppState.push(Route.CustomCar(null)) }
                         SecondaryButton("Modo tienda", Modifier.weight(1f)) { AppState.push(Route.Shop) }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    SecondaryButton("¿Quién tiene lo que busco?", Modifier.fillMaxWidth()) { AppState.push(Route.Matches) }
                     Spacer(Modifier.height(14.dp))
                     // View options, folded by default so the garage stays clean
                     val tabName = mapOf("have" to "Tengo", "want" to "Quiero", "dup" to "Repes", "series" to "Series")[tab] ?: "Tengo"

@@ -5,6 +5,12 @@ object Changelog {
     data class Entry(val version: String, val items: List<String>)
 
     val entries = listOf(
+        Entry("Quién lo tiene", listOf(
+            "¿Quién tiene lo que busco? Cruza tu lista de deseos con los garajes públicos y te dice quién tiene cada coche (y si lo cambia).",
+            "También al revés: quién busca los coches que tú tienes para cambiar o repes.",
+            "Escríbele desde la app: le llega un correo y la respuesta te llega a ti.",
+            "Reconocer por foto: ¿coche suelto, sin tarjeta? Hazle una foto y te dice qué modelo es (Escanear).",
+        )),
         Entry("Deshacer", listOf(
             "Si marcaste «La tengo» sin querer, vuelve a tocarlo para quitarlo de Mi garaje.",
             "Tras añadir o quitar un coche aparece «Deshacer» unos segundos, y lo deja todo como estaba (con su cantidad, notas y foto).",
