@@ -16,6 +16,8 @@ android {
         targetSdk = 35
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
+        // Only phone processors (ARM). x86 is emulators and almost no real phones: it doubled the native libraries.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     // Same key on every build so updates install on top of the previous version.
@@ -30,8 +32,11 @@ android {
 
     buildTypes {
         release {
-            // No R8: stability over size (same rule as Noir+ and Noir Books).
-            isMinifyEnabled = false
+            // R8 removes the library code the app never uses. No renaming (-dontobfuscate),
+            // so crash reports stay readable, and all of the app's own classes are kept as they are.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -44,6 +49,11 @@ android {
     lint {
         checkReleaseBuilds = false
         abortOnError = false
+    }
+    // Native libraries compressed inside the APK: much smaller download (they are unpacked on install).
+    packaging {
+        jniLibs { useLegacyPackaging = true }
+        resources { excludes += listOf("META-INF/*.kotlin_module", "META-INF/*.version", "kotlin/**", "DebugProbesKt.bin", "META-INF/LICENSE*", "META-INF/NOTICE*") }
     }
     buildFeatures {
         compose = true
