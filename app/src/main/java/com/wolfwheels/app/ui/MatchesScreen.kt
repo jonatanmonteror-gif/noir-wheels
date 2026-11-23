@@ -191,7 +191,7 @@ private fun MatchCard(row: Matches.Row, wanted: Boolean, onGarage: (Matches.Pers
 @Composable
 private fun SmallAction(text: String, accent: Boolean = false, onClick: () -> Unit) {
     Box(
-        Modifier.clip(RoundedCornerShape(10.dp)).background(if (accent) WW.accent else WW.surface2)
+        Modifier.clip(RoundedCornerShape(10.dp)).then(if (accent) Modifier.background(WW.accent) else Modifier.background(WW.surface2))
             .then(if (accent) Modifier else Modifier.border(1.dp, WW.line, RoundedCornerShape(10.dp)))
             .clickable(onClick = onClick).padding(horizontal = 11.dp, vertical = 8.dp)
     ) {
