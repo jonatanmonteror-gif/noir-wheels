@@ -62,7 +62,7 @@ fun ShopScreen() {
             items(wish, key = { it.key }) { w ->
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(16.dp)).background(WW.surface)
-                        .border(1.dp, WW.line, RoundedCornerShape(16.dp)).clickable { if (w.custom) AppState.push(Route.CustomCar(w.key)) else AppState.open(w.title, w.key) }
+                        .border(1.dp, WW.line, RoundedCornerShape(16.dp)).clickable { AppState.openItem(w) }
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

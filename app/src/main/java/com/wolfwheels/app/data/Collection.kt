@@ -35,12 +35,13 @@ object MyCollection {
         val trade: Boolean = false,     // offered for swapping (public garage "Para cambiar")
         val custom: Boolean = false,    // added by hand (not in the wiki)
         val brand: String = "",         // for cars added by hand
+        val cat: String = "",           // id in the community catalog (shared or taken from it)
     ) {
         fun json(): JSONObject = JSONObject().put("key", key).put("title", title).put("year", year).put("series", series)
             .put("color", color).put("toy", toy).put("photo", photo ?: "").put("status", status).put("t", t).put("deleted", deleted)
             .put("qty", qty).put("cond", cond).put("price", price ?: JSONObject.NULL).put("notes", notes).put("garage", garage)
             .put("myPhoto", myPhoto ?: "").put("seriesLink", seriesLink ?: "").put("th", th).put("added", added)
-            .put("trade", trade).put("custom", custom).put("brand", brand)
+            .put("trade", trade).put("custom", custom).put("brand", brand).put("cat", cat)
         companion object {
             fun from(j: JSONObject) = Item(
                 j.optString("key"), j.optString("title"), j.optString("year"), j.optString("series"), j.optString("color"),
@@ -49,7 +50,7 @@ object MyCollection {
                 price = if (j.isNull("price") || !j.has("price")) null else j.optDouble("price").takeIf { !it.isNaN() },
                 notes = j.optString("notes"), garage = j.optString("garage"), myPhoto = j.optString("myPhoto").ifEmpty { null },
                 seriesLink = j.optString("seriesLink").ifEmpty { null }, th = j.optInt("th"), added = j.optLong("added", j.optLong("t")),
-                trade = j.optBoolean("trade"), custom = j.optBoolean("custom"), brand = j.optString("brand"),
+                trade = j.optBoolean("trade"), custom = j.optBoolean("custom"), brand = j.optString("brand"), cat = j.optString("cat"),
             )
         }
     }
@@ -104,6 +105,28 @@ object MyCollection {
         items[key] = Item(key, title, year, series, color, toy, null, "have", now, custom = true, brand = brand, added = now)
         persist(); scheduleSync()
         return key
+    }
+
+    /** A car from the community catalog: same key for everybody ("cat|id"), so the matches between garages work. */
+    fun setCatalog(e: Community.Entry, status: String?) {
+        val key = "cat|" + e.id
+        val old = items[key]
+        val now = System.currentTimeMillis()
+        items[key] = (old ?: Item(key, e.title, e.year, e.series, e.color, e.toy, e.photo, status ?: "have", now,
+            custom = true, brand = e.brand, cat = e.id, added = now))
+            .copy(status = status ?: old?.status ?: "have", t = now, deleted = status == null, title = e.title, year = e.year,
+                series = e.series, color = e.color, toy = e.toy, photo = e.photo ?: old?.photo, brand = e.brand,
+                added = if (old == null || old.deleted) now else old.added)
+        persist(); scheduleSync()
+    }
+
+    /** Moves an item to another key (a car added by hand that is now in the community catalog). */
+    fun rekey(old: String, new: String, change: (Item) -> Item) {
+        val it = items[old] ?: return
+        val now = System.currentTimeMillis()
+        items[new] = change(it).copy(key = new, t = now, deleted = false)
+        items[old] = it.copy(t = now, deleted = true)
+        persist(); scheduleSync()
     }
 
     /** One more of a version I already have (serial scanning), or adds it. */

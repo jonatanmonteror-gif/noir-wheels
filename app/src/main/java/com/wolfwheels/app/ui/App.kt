@@ -28,7 +28,8 @@ sealed class Route {
     data object Shop : Route()
     data object Matches : Route()
     data object Identify : Route()
-    data class CustomCar(val key: String?) : Route()
+    data class CustomCar(val key: String?, val toy: String? = null, val photo: String? = null) : Route()
+    data class Community(val id: String) : Route()
     data class Listing(val label: String, val target: String) : Route()
     data object Collection : Route()
     data object Account : Route()
@@ -49,6 +50,12 @@ object AppState {
 
     fun open(title: String, selectKey: String? = null) { stack.add(Route.Detail(title, selectKey)) }
     fun push(r: Route) { stack.add(r) }
+    /** Opens a car of my garage: wiki page, community catalog entry or my own car added by hand. */
+    fun openItem(i: com.wolfwheels.app.data.MyCollection.Item) = when {
+        i.cat.isNotBlank() -> push(Route.Community(i.cat))
+        i.custom -> push(Route.CustomCar(i.key))
+        else -> open(i.title, i.key)
+    }
     fun back(): Boolean = when {
         viewer.value != null -> { viewer.value = null; true }
         stack.isNotEmpty() -> { stack.removeAt(stack.lastIndex); true }
@@ -82,7 +89,8 @@ fun App() {
                     Route.Shop -> ShopScreen()
                     Route.Matches -> MatchesScreen()
                     Route.Identify -> IdentifyScreen()
-                    is Route.CustomCar -> CustomCarScreen(r.key)
+                    is Route.CustomCar -> CustomCarScreen(r.key, r.toy, r.photo)
+                    is Route.Community -> CommunityCarScreen(r.id)
                     is Route.Listing -> ListingScreen(r.label, r.target)
                     Route.Collection -> CollectionScreen()
                     Route.Account -> AccountScreen()

@@ -95,12 +95,19 @@ fun HomeScreen() {
     var finished by remember { mutableStateOf(false) }
     var job by remember { mutableStateOf<Job?>(null) }
     val grid = rememberLazyGridState()
+    var community by remember { mutableStateOf<List<com.wolfwheels.app.data.Community.Entry>>(emptyList()) }
 
     fun load(reset: Boolean) {
         if (!reset && (loading || finished)) return
         job?.cancel()
         if (reset) { cars.clear(); cont = null; finished = false; error = null; scope.launch { grid.scrollToItem(0) } }
         val src = source
+        if (reset) {
+            community = emptyList()
+            if (src is Source.Search) scope.launch {
+                community = runCatching { com.wolfwheels.app.data.Community.search(src.q) }.getOrDefault(emptyList())
+            }
+        }
         loading = true
         job = scope.launch {
             try {
@@ -240,6 +247,33 @@ fun HomeScreen() {
                         trailing = if (cars.isNotEmpty()) "${cars.size}${if (finished) "" else "+"}" else null)
                 }
             }
+            if (source is Source.Search && community.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column {
+                        Text("DEL CATÁLOGO DE LA COMUNIDAD", color = WW.amber, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(community.size) { i ->
+                                val c = community[i]
+                                Column(
+                                    Modifier.width(150.dp).clip(RoundedCornerShape(14.dp)).background(WW.surface)
+                                        .border(1.dp, WW.amber.copy(alpha = 0.5f), RoundedCornerShape(14.dp)).clickable { AppState.push(Route.Community(c.id)) }
+                                ) {
+                                    Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(WW.showroom), contentAlignment = Alignment.Center) {
+                                        if (c.photo != null) AsyncImage(c.photo, c.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                        else Text("SIN FOTO", color = WW.text3, fontSize = 12.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(c.title.uppercase(), color = WW.text, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp))
+                                    Text(listOf(c.brand, c.year).filter { it.isNotBlank() }.joinToString(" · "), color = WW.text3, fontSize = 11.sp, maxLines = 1,
+                                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 7.dp))
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
+            }
             itemsIndexed(cars, key = { _, c -> c.title }) { _, car -> CarCard(car) { AppState.open(car.title) } }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().padding(vertical = 18.dp), contentAlignment = Alignment.Center) {
@@ -250,7 +284,8 @@ fun HomeScreen() {
                             Spacer(Modifier.height(10.dp))
                             SecondaryButton("Reintentar") { error = null; load(reset = cars.isEmpty()) }
                         }
-                        cars.isEmpty() -> Text("Sin resultados. Prueba con el nombre en inglés.", color = WW.text2, fontSize = 14.sp)
+                        cars.isEmpty() && community.isEmpty() -> Text("Sin resultados. Prueba con el nombre en inglés.", color = WW.text2, fontSize = 14.sp)
+                        cars.isEmpty() -> Text("No está en la wiki.", color = WW.text3, fontSize = 13.sp)
                         finished -> Text("No hay más modelos", color = WW.text3, fontSize = 13.sp)
                     }
                 }

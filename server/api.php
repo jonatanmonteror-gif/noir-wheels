@@ -23,6 +23,10 @@
  *   img       GET  q=texto → {url}  (foto de un anuncio de eBay, con caché de 30 días)
  *   matches   GET  (Bearer) → {want:[…], trade:[…], public}  quién tiene lo que busco / quién busca lo que cambio
  *   contact   POST (Bearer) {slug,title,message} → {ok}  correo al dueño de un garaje público (responde a tu email)
+ *   catadd    POST (Bearer) {id?,toy,title,brand,year,series,color,notes,image?} → {entry}  ficha nueva (o editar la tuya) en el catálogo de la comunidad
+ *   catsearch GET  q=texto | toy=código | mine=1 (Bearer) → {items:[…]}
+ *   catdel    POST (Bearer) {id} → {ok}  borra tu ficha (o cualquiera, si eres el administrador)
+ *   catimg    GET  id=… → la foto de una ficha (jpeg)
  *   identify  POST (Bearer) {image: jpeg en base64} → {candidates:[{name,confidence,color,notes}]}  (IA de OpenRouter)
  */
 
@@ -36,7 +40,7 @@ function out($data, int $code = 200) { http_response_code($code); echo json_enco
 function fail(int $code, string $msg) { out(['error' => $msg], $code); }
 
 // La página pública del garaje se abre desde cualquier navegador; el resto solo desde la app
-if (($_GET['a'] ?? '') !== 'page' && ($_SERVER['HTTP_X_WOLF_APP'] ?? '') !== APP_KEY) fail(403, 'app');
+if (!in_array($_GET['a'] ?? '', ['page', 'catimg'], true) && ($_SERVER['HTTP_X_WOLF_APP'] ?? '') !== APP_KEY) fail(403, 'app');
 
 $dir = __DIR__ . '/data';
 foreach ([$dir, "$dir/col", "$dir/img"] as $d) if (!is_dir($d)) mkdir($d, 0700, true);
@@ -521,6 +525,92 @@ case 'contact': {
     if (!$ok) fail(502, 'mail');
     out(['ok' => true]);
 }
+case 'catadd': {
+    $u = auth();
+    $b = body();
+    $clean = fn($k, $n) => mb_substr(trim(strip_tags((string)($b[$k] ?? ''))), 0, $n);
+    $title = $clean('title', 60);
+    if ($title === '') fail(400, 'title');
+    $toy = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $clean('toy', 12)));
+    $img = (string)($b['image'] ?? '');
+    $raw = null;
+    if ($img !== '') {
+        $raw = base64_decode($img, true);
+        if ($raw === false || strlen($raw) > 2500000 || substr($raw, 0, 3) !== "\xFF\xD8\xFF") fail(400, 'image');
+    }
+    $id = preg_replace('/[^a-z0-9]/', '', (string)($b['id'] ?? ''));
+    if ($id === '' && quota('catadd:' . $u['id'], 40, 86400)) fail(429, 'too_many');
+    $isNew = $id === '';
+    if ($isNew) $id = bin2hex(random_bytes(6));
+    $admin = defined('ADMIN_EMAIL') && strcasecmp(ADMIN_EMAIL, $u['email']) === 0;
+    $entry = locked("$dir/catalog.json", function ($cat) use ($id, $isNew, $u, $admin, $clean, $title, $toy, $raw) {
+        $old = $cat[$id] ?? null;
+        if (!$isNew && (!$old || ($old['uid'] !== $u['id'] && !$admin))) return [null, null];
+        $e = ['id' => $id, 'title' => $title, 'brand' => $clean('brand', 40) ?: 'Hot Wheels', 'year' => preg_replace('/\D/', '', $clean('year', 4)),
+            'series' => $clean('series', 60), 'color' => $clean('color', 40), 'toy' => $toy, 'notes' => $clean('notes', 300),
+            'uid' => $old['uid'] ?? $u['id'], 'by' => $old['by'] ?? ($u['name'] ?? ''), 'created' => $old['created'] ?? time(), 't' => time(),
+            'photo' => $raw !== null ? time() : ($old['photo'] ?? 0)];
+        $cat[$id] = $e;
+        return [$cat, $e];
+    });
+    if (!$entry) fail(404, 'entry');
+    if ($raw !== null) { @mkdir("$dir/cat", 0755, true); file_put_contents("$dir/cat/$id.jpg", $raw); }
+    if ($isNew && defined('ADMIN_EMAIL') && ADMIN_EMAIL !== '') {
+        $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+        $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+        $body = '<b style="color:#F4F4F5">' . $h($entry['by']) . '</b> ha añadido una ficha al catálogo de la comunidad:'
+            . '<div style="margin:14px 0;padding:14px;background:#0B0C0F;border-radius:12px"><b style="color:#FFB81C;font-size:18px">' . $h($title) . '</b><br>'
+            . $h(implode(' · ', array_filter([$entry['brand'], $entry['year'], $entry['color'], $entry['series'], $toy ? "Nº $toy" : '']))) . '</div>'
+            . ($entry['photo'] ? '<img src="https://' . $h($host) . '/wolf-wheels/api.php?a=catimg&id=' . $id . '" width="460" style="max-width:100%;border-radius:12px">' : '');
+        wolfMail(ADMIN_EMAIL, "Wolf Wheels · Ficha nueva: $title", 'Ficha nueva', $body, 'Si no es correcta, bórrala desde la app (abriendo la ficha, con tu cuenta de administrador).');
+    }
+    out(['entry' => catOut($entry)]);
+}
+case 'catsearch': {
+    $cat = json_decode(@file_get_contents("$dir/catalog.json") ?: '[]', true) ?: [];
+    $q = mb_strtolower(trim((string)($_GET['q'] ?? '')));
+    $toy = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($_GET['toy'] ?? '')));
+    $id = (string)($_GET['id'] ?? '');
+    $hasTok = ($_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ($_SERVER['HTTP_X_WOLF_TOKEN'] ?? ''))) !== '';
+    if ($hasTok || !empty($_GET['mine'])) $u = auth();
+    $mine = !empty($_GET['mine']) ? $u['id'] : null;
+    $res = [];
+    foreach ($cat as $e) {
+        if ($id !== '') { if ($e['id'] === $id) $res[] = $e; continue; }
+        if ($mine !== null) { if ($e['uid'] === $mine) $res[] = $e; continue; }
+        if ($toy !== '') { if ($e['toy'] !== '' && str_contains($e['toy'], $toy)) $res[] = $e; continue; }
+        if ($q !== '' && mb_strlen($q) >= 2) {
+            $hay = mb_strtolower($e['title'] . ' ' . $e['brand'] . ' ' . $e['series'] . ' ' . $e['toy'] . ' ' . $e['color']);
+            $ok = true;
+            foreach (preg_split('/\s+/', $q) as $w) if ($w !== '' && !str_contains($hay, $w)) { $ok = false; break; }
+            if ($ok) $res[] = $e;
+        }
+    }
+    usort($res, fn($a, $b) => $b['t'] <=> $a['t']);
+    out(['items' => array_map('catOut', array_slice($res, 0, 40))]);
+}
+case 'catdel': {
+    $u = auth();
+    $id = preg_replace('/[^a-z0-9]/', '', (string)(body()['id'] ?? ''));
+    $admin = defined('ADMIN_EMAIL') && strcasecmp(ADMIN_EMAIL, $u['email']) === 0;
+    $ok = locked("$dir/catalog.json", function ($cat) use ($id, $u, $admin) {
+        if (!isset($cat[$id]) || ($cat[$id]['uid'] !== $u['id'] && !$admin)) return [null, false];
+        unset($cat[$id]);
+        return [$cat, true];
+    });
+    if (!$ok) fail(404, 'entry');
+    @unlink("$dir/cat/$id.jpg");
+    out(['ok' => true]);
+}
+case 'catimg': {
+    $id = preg_replace('/[^a-z0-9]/', '', (string)($_GET['id'] ?? ''));
+    $f = "$dir/cat/$id.jpg";
+    if ($id === '' || !is_file($f)) { http_response_code(404); exit; }
+    header('Content-Type: image/jpeg');
+    header('Cache-Control: public, max-age=2592000');
+    readfile($f);
+    exit;
+}
 case 'identify': {
     $u = auth();
     if (!defined('OPENROUTER_KEY') || OPENROUTER_KEY === '') fail(503, 'no_ai');
@@ -561,6 +651,16 @@ case 'identify': {
 }
 default:
     fail(404, 'action');
+}
+
+/** Ficha del catálogo tal como la ve la app (sin el id interno del autor). */
+function catOut(array $e): array {
+    global $u;
+    $host = $_SERVER['HTTP_HOST'] ?? 'jonatanmontero.es';
+    $o = $e; unset($o['uid']);
+    $o['photo'] = !empty($e['photo']) ? "https://$host/wolf-wheels/api.php?a=catimg&id={$e['id']}&v={$e['photo']}" : '';
+    $o['mine'] = isset($u['id']) && $u['id'] === $e['uid'];
+    return $o;
 }
 
 /** Límite de uso por usuario y acción: true si ya ha llegado al máximo en la ventana de tiempo. */

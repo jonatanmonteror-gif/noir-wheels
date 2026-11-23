@@ -285,7 +285,7 @@ fun CollectionScreen() {
 private fun CollectionCard(item: MyCollection.Item) {
     Column(
         Modifier.clip(RoundedCornerShape(16.dp)).background(WW.surface).border(1.dp, WW.line, RoundedCornerShape(16.dp))
-            .clickable { if (item.custom) AppState.push(Route.CustomCar(item.key)) else AppState.open(item.title, item.key) }
+            .clickable { AppState.openItem(item) }
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(WW.showroom), contentAlignment = Alignment.Center) {
             when {

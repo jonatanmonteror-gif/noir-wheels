@@ -47,6 +47,8 @@ object Server {
         e is ApiError && e.reason == "unverified" -> "Falta verificar tu email. Te hemos mandado un código nuevo."
         e is ApiError && e.reason == "slug" -> "El nombre del enlace debe tener de 3 a 30 letras, números o guiones."
         e is ApiError && e.reason == "slug_taken" -> "Ese nombre ya lo usa otra persona. Prueba con otro."
+        e is ApiError && e.reason == "entry" -> "Esa ficha ya no existe o no es tuya."
+        e is ApiError && e.reason == "title" -> "Ponle un nombre al coche."
         e is ApiError && e.reason == "too_many" -> "Has llegado al límite de hoy. Vuelve a probar mañana."
         e is ApiError && e.reason == "garage" -> "Ese garaje ya no es público."
         e is ApiError && e.reason == "no_ai" -> "El reconocimiento por foto aún no está activado en el servidor."

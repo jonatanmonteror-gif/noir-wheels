@@ -73,9 +73,13 @@ fun ScanScreen() {
     var baseCode by remember { mutableStateOf("") }
     var serial by remember { mutableStateOf(false) }                 // scan card after card without leaving
     val added = remember { androidx.compose.runtime.mutableStateListOf<String>() }   // added in this session
+    var community by remember { mutableStateOf<List<com.wolfwheels.app.data.Community.Entry>>(emptyList()) }
+    var missing by remember { mutableStateOf<List<String>>(emptyList()) }   // codes found nowhere → create a new entry
+    var cardPhoto by remember { mutableStateOf<String?>(null) }             // last card photo taken with the camera
 
     fun search(list: List<String>) {
-        if (list.isEmpty()) { msg = "No he encontrado ningún número de juguete. Prueba con más luz o escríbelo."; return }
+        community = emptyList(); missing = emptyList()
+        if (list.isEmpty()) { msg = "No he encontrado ningún número de juguete. Prueba con más luz o escríbelo abajo."; return }
         codes = list; msg = null; results = null
         scope.launch {
             val out = mutableListOf<Pair<String, List<Wiki.ToyMatch>>>()
@@ -85,9 +89,16 @@ fun ScanScreen() {
                 if (m.isNotEmpty()) out += c to m
                 if (out.sumOf { it.second.size } >= 6) break
             }
+            if (out.isEmpty()) {
+                // Not in the wiki: the community catalog, and if it is nowhere, offer to create it
+                busy = "Buscando en el catálogo de la comunidad…"
+                val found = list.flatMap { c -> runCatching { com.wolfwheels.app.data.Community.byToy(c) }.getOrDefault(emptyList()) }.distinctBy { it.id }
+                community = found
+                if (found.isEmpty()) missing = list.take(3)
+            }
             busy = null
             results = out
-            if (out.isEmpty()) msg = "No encuentro ese número en la wiki (${list.joinToString(", ")}). Puede ser muy nuevo o estar mal leído."
+            if (out.isEmpty() && community.isEmpty()) msg = "No encuentro ${if (list.size == 1) "el número" else "los números"} ${list.joinToString(", ")} ni en la wiki ni en el catálogo de la comunidad. Puede ser muy nuevo o estar mal leído: revísalo y, si está bien, crea la ficha."
             else if (!serial && out.size == 1 && out[0].second.size == 1) {
                 val m = out[0].second[0]
                 AppState.push(Route.Detail(m.title, selectKey = m.version.key(m.title)))
@@ -112,9 +123,9 @@ fun ScanScreen() {
 
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         val f = photo
-        if (ok && f != null) readImage(Uri.fromFile(f))
+        if (ok && f != null) { cardPhoto = f.absolutePath; readImage(Uri.fromFile(f)) }
     }
-    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { readImage(it) } }
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { cardPhoto = null; readImage(it) } }
 
     Column(Modifier.fillMaxSize().background(WW.bg).blockTouches()) {
         TopBar("Escanear tarjeta")
@@ -198,6 +209,40 @@ fun ScanScreen() {
                 Text("Números leídos: ${codes.joinToString(" · ")}", color = WW.text3, fontSize = 12.sp)
             }
             msg?.let { Spacer(Modifier.height(14.dp)); Text(it, color = WW.orange, fontSize = 14.sp, lineHeight = 20.sp) }
+
+            if (community.isNotEmpty()) {
+                SectionTitle("Catálogo de la comunidad", trailing = "${community.size}")
+                community.forEach { c ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(WW.surface)
+                            .border(1.dp, WW.line, RoundedCornerShape(14.dp)).clickable { AppState.push(Route.Community(c.id)) }.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(86.dp, 64.dp).clip(RoundedCornerShape(10.dp)).background(WW.showroom), contentAlignment = Alignment.Center) {
+                            if (c.photo != null) AsyncImage(c.photo, c.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(c.title.uppercase(), color = WW.text, fontFamily = Barlow, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 17.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(listOf(c.brand, c.year, c.color, "Nº ${c.toy}").filter { it.isNotBlank() }.joinToString(" · "), color = WW.text2, fontSize = 13.sp, maxLines = 1)
+                            if (c.by.isNotBlank()) Text("Ficha de ${c.by}", color = WW.text3, fontSize = 12.sp, maxLines = 1)
+                        }
+                        if (MyCollection.statusOf("cat|" + c.id) != null) Text(if (MyCollection.statusOf("cat|" + c.id) == "have") "✓" else "★", color = WW.amber, fontSize = 20.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp))
+                    }
+                }
+            }
+            if (missing.isNotEmpty() && busy == null) {
+                Spacer(Modifier.height(12.dp))
+                missing.forEach { code ->
+                    PrimaryButton("Crear ficha nueva · Nº $code", Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        AppState.push(Route.CustomCar(null, toy = code, photo = cardPhoto))
+                    }
+                }
+                Text("Se guarda en tu garaje y en el catálogo de la comunidad, para que al próximo que lo escanee ya le salga.",
+                    color = WW.text3, fontSize = 12.sp, lineHeight = 16.sp)
+            }
 
             results?.forEach { (code, matches) ->
                 SectionTitle("Nº $code", trailing = "${matches.size}")
