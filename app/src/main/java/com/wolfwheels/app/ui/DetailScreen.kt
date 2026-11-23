@@ -351,11 +351,11 @@ fun DetailScreen(title: String, selectKey: String? = null, selectToy: String? = 
                         photos.isEmpty() -> Text("Este modelo no tiene más fotos.", color = WW.text3, fontSize = 13.sp)
                     }
                     Spacer(Modifier.height(18.dp))
-                    SecondaryButton("Ver en la Hot Wheels Wiki", Modifier.fillMaxWidth()) {
+                    SecondaryButton("Ver la ficha original en la wiki", Modifier.fillMaxWidth()) {
                         runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Wiki.pageUrl(title)))) }
                     }
                     Spacer(Modifier.height(14.dp))
-                    Text("Datos e imágenes de la Hot Wheels Wiki (Fandom), creada por la comunidad. Texto con licencia CC BY-SA; las fotos pertenecen a sus autores.",
+                    Text("Datos e imágenes de una wiki de la comunidad (Fandom). Texto con licencia CC BY-SA; las fotos pertenecen a sus autores.",
                         color = WW.text3, fontSize = 12.sp, lineHeight = 17.sp)
                 }
             }

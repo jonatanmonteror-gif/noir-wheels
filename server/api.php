@@ -156,7 +156,7 @@ function wolfMail(string $to, string $subject, string $title, string $body, stri
         . '<div style="font-size:15px;line-height:22px;color:#C9CCD2">' . $body . '</div>'
         . '</td></tr>'
         . '<tr><td style="padding:16px 24px 22px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#6B707A;border-top:1px solid #2A2E37">'
-        . ($foot !== '' ? $foot . '<br>' : '') . 'Wolf Wheels · tu garaje de Hot Wheels</td></tr>'
+        . ($foot !== '' ? $foot . '<br>' : '') . 'Wolf Wheels · tu garaje de coches a escala</td></tr>'
         . '</table></td></tr></table></body></html>';
     $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $from = sender();
@@ -546,7 +546,7 @@ case 'catadd': {
     $entry = locked("$dir/catalog.json", function ($cat) use ($id, $isNew, $u, $admin, $clean, $title, $toy, $raw) {
         $old = $cat[$id] ?? null;
         if (!$isNew && (!$old || ($old['uid'] !== $u['id'] && !$admin))) return [null, null];
-        $e = ['id' => $id, 'title' => $title, 'brand' => $clean('brand', 40) ?: 'Hot Wheels', 'year' => preg_replace('/\D/', '', $clean('year', 4)),
+        $e = ['id' => $id, 'title' => $title, 'brand' => $clean('brand', 40), 'year' => preg_replace('/\D/', '', $clean('year', 4)),
             'series' => $clean('series', 60), 'color' => $clean('color', 40), 'toy' => $toy, 'notes' => $clean('notes', 300),
             'uid' => $old['uid'] ?? $u['id'], 'by' => $old['by'] ?? ($u['name'] ?? ''), 'created' => $old['created'] ?? time(), 't' => time(),
             'photo' => $raw !== null ? time() : ($old['photo'] ?? 0)];
@@ -620,9 +620,9 @@ case 'identify': {
     if ($raw === false || substr($raw, 0, 3) !== "\xFF\xD8\xFF") fail(400, 'image');
     if (quota('identify:' . $u['id'], 40, 86400)) fail(429, 'too_many');
     $model = defined('OPENROUTER_MODEL') && OPENROUTER_MODEL !== '' ? OPENROUTER_MODEL : 'google/gemini-2.5-flash';
-    $prompt = 'You are an expert Hot Wheels die-cast collector. Identify the Hot Wheels car in the photo (it is loose, without card). '
-        . 'Return ONLY JSON: {"candidates":[{"name":"exact casting name as written in the Hot Wheels Wiki (hotwheels.fandom.com) page title","confidence":0-100,"color":"main body color in Spanish","notes":"short Spanish hint: tampos, wheels, year range"}]}. '
-        . 'Give 1 to 3 candidates, best first. If it is not a Hot Wheels car, or you cannot tell, return {"candidates":[]}.';
+    $prompt = 'You are an expert collector of 1:64 die-cast toy cars. Identify the car in the photo (it is loose, without card). '
+        . 'Return ONLY JSON: {"candidates":[{"name":"exact casting name as written in the Hot Wheels Wiki (hotwheels.fandom.com) page title","confidence":0-100,"color":"main body color in Spanish","notes":"short Spanish hint about tampos, wheels and year range, never mentioning any brand or manufacturer"}]}. '
+        . 'Give 1 to 3 candidates, best first. If it is not a 1:64 die-cast car, or you cannot tell, return {"candidates":[]}.';
     $payload = ['model' => $model, 'temperature' => 0.2, 'max_tokens' => 600,
         'response_format' => ['type' => 'json_object'],
         'messages' => [['role' => 'user', 'content' => [
@@ -768,5 +768,5 @@ function garagePage(?array $user, array $items, bool $showWant): string {
     $out .= '<h2>Mi garaje</h2><div class="g">';
     foreach ($have as $i) { $q = max(1, (int)($i['qty'] ?? 1)); $out .= $card($i, $q > 1 ? '×' . $q : ''); }
     if (!$have) $out .= '<p style="color:#A3A7B0">Aún vacío.</p>';
-    return $out . '</div><footer>Hecho con <b>Wolf Wheels</b> · tu garaje de Hot Wheels</footer></div></body></html>';
+    return $out . '</div><footer>Hecho con <b>Wolf Wheels</b> · tu garaje de coches a escala</footer></div></body></html>';
 }

@@ -1,7 +1,7 @@
 # Wolf Wheels
 
-Personal, unofficial Hot Wheels gallery for Android.
-Data and photos come live from the [Hot Wheels Wiki (Fandom)](https://hotwheels.fandom.com) public API, no key needed.
+Independent gallery app for 1:64 die-cast car collectors (Android).
+Data and photos come live from a community wiki on Fandom (public MediaWiki API, no key needed).
 
 ## Features
 - Model search and collections (2026, 2025, 2024, Treasure Hunts, Super Treasure Hunts, Monster Trucks)
@@ -15,5 +15,5 @@ Every push to `main` builds the APK with GitHub Actions and publishes a release 
 Latest APK: https://github.com/jonatanmonteror-gif/noir-wheels/releases/latest/download/WolfWheels.apk
 
 ## Notice
-Not affiliated with Mattel. Hot Wheels is a registered trademark of Mattel. Wiki text is CC BY-SA; photos belong to their authors.
+Not affiliated with any manufacturer. Trademarks that appear in the data belong to their owners. Wiki text is CC BY-SA; photos belong to their authors.
 Fonts: Inter and Barlow Condensed (SIL Open Font License).

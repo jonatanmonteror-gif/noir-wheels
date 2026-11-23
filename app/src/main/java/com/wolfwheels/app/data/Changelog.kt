@@ -10,6 +10,7 @@ object Changelog {
             "Si escaneas un número que no está en ninguna parte, te ofrece crear la ficha nueva con ese número y la foto de la tarjeta.",
             "Fichas de la comunidad: «La tengo», «La quiero», y también cuentan para «¿Quién tiene lo que busco?».",
             "App mucho más ligera: de 72 MB a 16 MB.",
+            "Textos revisados: la app ya no menciona ninguna marca de juguetes.",
         )),
         Entry("Quién lo tiene", listOf(
             "¿Quién tiene lo que busco? Cruza tu lista de deseos con los garajes públicos y te dice quién tiene cada coche (y si lo cambia).",

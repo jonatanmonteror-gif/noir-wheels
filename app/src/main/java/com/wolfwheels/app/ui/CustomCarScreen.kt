@@ -68,7 +68,7 @@ fun CustomCarScreen(key: String?, presetToy: String? = null, presetPhoto: String
     }
     val item = currentKey?.let { MyCollection.items[it] }
     var name by remember { mutableStateOf(item?.title ?: "") }
-    var brand by remember { mutableStateOf(item?.brand?.ifBlank { null } ?: "Hot Wheels") }
+    var brand by remember { mutableStateOf(item?.brand ?: "") }
     var year by remember { mutableStateOf(item?.year ?: "") }
     var series by remember { mutableStateOf(item?.series ?: "") }
     var color by remember { mutableStateOf(item?.color ?: "") }
@@ -100,7 +100,7 @@ fun CustomCarScreen(key: String?, presetToy: String? = null, presetPhoto: String
             Spacer(Modifier.height(5.dp)); Input(name, "Ej.: Mi custom Skyline", Modifier.fillMaxWidth()) { name = it.take(60) }
             Spacer(Modifier.height(10.dp))
             Text("MARCA", color = WW.text3, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(5.dp)); Input(brand, "Hot Wheels, Matchbox, Mini GT…", Modifier.fillMaxWidth()) { brand = it.take(40) }
+            Spacer(Modifier.height(5.dp)); Input(brand, "Opcional", Modifier.fillMaxWidth()) { brand = it.take(40) }
             Spacer(Modifier.height(10.dp))
             Text("AÑO", color = WW.text3, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(5.dp)); Input(year, "2026", Modifier.fillMaxWidth(), KeyboardType.Number) { year = it.filter { c -> c.isDigit() }.take(4) }

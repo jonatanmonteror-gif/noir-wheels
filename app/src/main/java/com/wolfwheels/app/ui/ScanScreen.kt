@@ -53,7 +53,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import kotlin.coroutines.resume
 
-/** Toy numbers printed on Hot Wheels cards: HKG43, JBC18, J3247, W4240… */
+/** Toy numbers printed on the cards: HKG43, JBC18, J3247, W4240… */
 private val toyRegex = Regex("\\b([A-Z]{3}[0-9]{2}|[A-Z]{2}[0-9]{3}|[A-Z][0-9]{4})\\b")
 
 fun toyCodesIn(text: String): List<String> =

@@ -278,7 +278,7 @@ private fun PublicGarage() {
                 SecondaryButton("Compartir", Modifier.weight(1f)) {
                     runCatching {
                         ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-                            .putExtra(android.content.Intent.EXTRA_TEXT, "Mi garaje de Hot Wheels: $u"), "Compartir mi garaje"))
+                            .putExtra(android.content.Intent.EXTRA_TEXT, "Mi garaje en Wolf Wheels: $u"), "Compartir mi garaje"))
                     }
                 }
             }

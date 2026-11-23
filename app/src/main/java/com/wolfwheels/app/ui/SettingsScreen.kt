@@ -213,14 +213,14 @@ fun SettingsScreen() {
 
             SectionTitle("Acerca de")
             Card {
-                Text("Wolf Wheels es una galería personal y no oficial. No tiene relación con Mattel; Hot Wheels es una marca registrada de Mattel.",
+                Text("Wolf Wheels es una app independiente para coleccionistas de coches a escala. No tiene relación con ningún fabricante; las marcas que aparezcan en los datos pertenecen a sus dueños.",
                     color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
                 Spacer(Modifier.height(10.dp))
-                Text("Los datos y las fotos vienen en directo de la Hot Wheels Wiki (Fandom), hecha por la comunidad. El texto tiene licencia CC BY-SA y las fotos pertenecen a sus autores.",
+                Text("Los datos y las fotos vienen en directo de una wiki de la comunidad alojada en Fandom. El texto tiene licencia CC BY-SA y las fotos pertenecen a sus autores.",
                     color = WW.text2, fontSize = 14.sp, lineHeight = 20.sp)
                 Spacer(Modifier.height(12.dp))
-                SecondaryButton("Abrir la Hot Wheels Wiki", Modifier.fillMaxWidth()) {
-                    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Wiki.SITE + "Hot_Wheels_Wiki"))) }
+                SecondaryButton("Abrir la wiki de origen", Modifier.fillMaxWidth()) {
+                    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Wiki.SITE))) }
                 }
             }
             Spacer(Modifier.height(30.dp))

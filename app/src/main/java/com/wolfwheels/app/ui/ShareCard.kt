@@ -88,7 +88,7 @@ object ShareCard {
             if (v.th == 2) badge("SUPER TREASURE HUNT", true) else if (v.th == 1) badge("TREASURE HUNT", false)
             if (MyCollection.statusOf(v.key(title)) == "have") badge("EN MI GARAJE", true)
         }
-        c.drawText("Wolf Wheels · tu garaje de Hot Wheels", 72f, 1315f, Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = inter; color = 0xFF6B707A.toInt(); textSize = 28f })
+        c.drawText("Wolf Wheels · tu garaje de coches a escala", 72f, 1315f, Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = inter; color = 0xFF6B707A.toInt(); textSize = 28f })
 
         val dir = File(ctx.cacheDir, "share").apply { mkdirs() }
         val f = File(dir, "wolf-wheels-coche.png")
